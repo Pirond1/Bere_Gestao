@@ -15,3 +15,4 @@ class ProdutoModel(BaseModel):
     categoria_id = Column(Integer, ForeignKey("categorias.id"), nullable=True)
 
     categoria = relationship("CategoriaModel", back_populates="produtos")
+    itens_pedido = relationship("ItemPedidoModel", back_populates="produto")

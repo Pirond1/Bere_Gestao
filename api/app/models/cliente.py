@@ -16,3 +16,4 @@ class ClienteModel(BaseModel):
 
     usuario = relationship("UsuarioModel", back_populates="cliente")
     enderecos = relationship("EnderecoModel", back_populates="cliente")
+    pedidos = relationship("PedidoModel", back_populates="cliente")
