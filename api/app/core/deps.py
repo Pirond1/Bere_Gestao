@@ -66,6 +66,16 @@ def get_admin_atual(usuario: UsuarioModel = Depends(get_usuario_atual)) -> Usuar
     return usuario
 
 
+def get_cliente_atual(usuario: UsuarioModel = Depends(get_usuario_atual)) -> ClienteModel:
+    """Retorna o cliente vinculado ao usuário logado — usado nas ações do perfil cliente."""
+    if usuario.cliente is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Ação disponível apenas para clientes",
+        )
+    return usuario.cliente
+
+
 def verificar_acesso_cliente(usuario_atual: UsuarioModel, cliente: ClienteModel) -> None:
     admin = usuario_atual.tipoUsuario.descricao == "admin"
     dono = usuario_atual.id == cliente.usuario_id

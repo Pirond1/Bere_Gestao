@@ -4,3 +4,9 @@ from app.models.cliente import ClienteModel
 from app.models.endereco import EnderecoModel
 from app.models.categoria import CategoriaModel
 from app.models.produto import ProdutoModel
+from app.models.configuracao import ConfiguracaoModel
+from app.models.status_pedido import StatusPedidoModel
+from app.models.agenda import AgendaModel
+from app.models.pedido import PedidoModel
+from app.models.item_pedido import ItemPedidoModel
+from app.models.avaliacao import AvaliacaoModel

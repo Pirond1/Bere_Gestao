@@ -61,9 +61,12 @@ Berê_Gestão/
 - **Cliente** — CPF, nome, e-mail, telefone, endereço (CEP, rua, número, complemento, bairro, cidade, UF), senha (hash). LGPD aplicável.
 - **Administrador** — login, senha (hash). Perfil com acesso total.
 - **Produto** — nome, descrição, preço, categoria, foto, disponibilidade.
-- **Pedido** — cliente, data do pedido, data de entrega/retirada, status, valor total, forma de pagamento, observações.
-- **ItemPedido** — pedido, produto, quantidade, preço unitário no momento do pedido.
-- **Avaliacao** — pedido, nota NPS (0-10), comentário, data.
+- **Pedido** — cliente, agenda (data de retirada), status, data do pedido, valor total, observações. A forma de pagamento fica na entidade Pagamento (BG-5), conforme o diagrama ER.
+- **ItemPedido** — pedido, produto, quantidade, preço unitário no momento do pedido, subtotal.
+- **Avaliacao** — pedido, nota NPS (0-10), comentário, data. Uma por pedido, só após a entrega.
+- **Agenda** — data, capacidade máxima, pedidos registrados, bloqueada. Controla a capacidade produtiva do dia (RF_F01).
+- **StatusPedido** — tabela de lookup com seed: `aguardando_pagamento`, `confirmado`, `em_producao`, `pronto`, `entregue`, `cancelado`.
+- **Configuracao** — tabela de linha única com os parâmetros que a proprietária edita pelo painel (capacidade produtiva padrão e antecedência mínima).
 
 ---
 
@@ -73,7 +76,7 @@ Berê_Gestão/
 - Nomes de **classes em PascalCase e singular** (`Cliente`, `Pedido`, `ItemPedido`).
 - Toda tabela tem: `id` (PK, autoincremento), `created_at`, `updated_at`.
 - Senhas sempre em **hash bcrypt** — nunca em texto puro.
-- Status de pedido como **Enum Python** (não string solta).
+- Status de pedido como **tabela de lookup** (`status_pedido`) com migration de seed, seguindo o diagrama ER e o padrão de `tipos_usuario`. As descrições ficam como constantes em `services/status_pedido_service.py` — nunca string solta no código.
 - Use `relationship` e `back_populates` corretamente nos relacionamentos.
 - Migrations descritivas em PT-BR: `alembic revision --autogenerate -m "cria tabela clientes"`.
 
@@ -169,7 +172,7 @@ docker-compose down -v
 ## Restrições importantes
 
 - **LGPD** — dados pessoais de clientes (CPF, endereço, telefone) precisam ser tratados com cuidado. Senhas sempre hashed.
-- **Capacidade produtiva** — o agendamento (RF_F01) precisa respeitar a quantidade que a confeitaria consegue produzir por dia. Isso é regra de negócio que vai entrar em `services/agendamento.py`.
+- **Capacidade produtiva** — o agendamento (RF_F01) respeita a quantidade de **pedidos por dia**, controlada em `services/agendamento_service.py`. Dias não cadastrados usam a capacidade padrão da tabela `configuracoes`; o admin pode sobrescrever a capacidade de uma data ou bloqueá-la (folga/feriado). Cancelar um pedido devolve a vaga.
 - **Mobile-first** — o frontend é PWA, então pensar em telas pequenas primeiro.
 
 ---
