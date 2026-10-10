@@ -1,5 +1,7 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.config import settings
 from app.routers import (
     agenda,
     auth,
@@ -15,6 +17,14 @@ from app.routers import (
 )
 
 app = FastAPI(title="Berê Gestão", version="1.0.0")
+
+# O frontend (gui/) roda em outra origem e chama a API direto pelo navegador
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[origem.strip() for origem in settings.CORS_ORIGINS.split(",") if origem.strip()],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth.router)
 app.include_router(usuario.router)
