@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -20,12 +22,16 @@ def listar(
     pagina: int = 1,
     limite: int = 20,
     apenas_disponiveis: bool = True,
+    categoria_id: Optional[int] = None,
 ) -> list[ProdutoModel]:
     offset = (pagina - 1) * limite
     query = db.query(ProdutoModel)
     if apenas_disponiveis:
         query = query.filter(ProdutoModel.disponivel == True)
-    return query.offset(offset).limit(limite).all()
+    if categoria_id:
+        query = query.filter(ProdutoModel.categoria_id == categoria_id)
+    # Ordenação fixa: sem ela a paginação por offset pode repetir ou pular produtos
+    return query.order_by(ProdutoModel.nome, ProdutoModel.id).offset(offset).limit(limite).all()
 
 
 def buscar_por_id(db: Session, produto_id: int) -> ProdutoModel:
