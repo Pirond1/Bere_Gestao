@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_admin_atual, get_usuario_opcional
@@ -17,25 +17,39 @@ def criar_produto(dados: ProdutoCreate, db: Session = Depends(get_db), _=Depends
     return produto_service.criar(db, dados)
 
 
+def _e_admin(usuario: Optional[UsuarioModel]) -> bool:
+    return usuario is not None and usuario.tipoUsuario.descricao == "admin"
+
+
 @router.get("/", response_model=list[ProdutoRead])
 def listar_produtos(
-    pagina: int = 1,
-    limite: int = 20,
+    pagina: int = Query(default=1, ge=1),
+    limite: int = Query(default=20, ge=1, le=100),
     apenas_disponiveis: bool = True,
+    categoria_id: Optional[int] = None,
     db: Session = Depends(get_db),
     usuario_atual: Optional[UsuarioModel] = Depends(get_usuario_opcional),
 ):
-    e_admin = (usuario_atual is not None
-        and usuario_atual.tipoUsuario.descricao == "admin"
-    )
-    if not e_admin:
+    """Vitrine pública: visitantes e clientes só enxergam produtos disponíveis."""
+    if not _e_admin(usuario_atual):
         apenas_disponiveis = True
-    return produto_service.listar(db, pagina, limite, apenas_disponiveis)
+    return produto_service.listar(db, pagina, limite, apenas_disponiveis, categoria_id)
 
 
 @router.get("/{produto_id}", response_model=ProdutoRead)
-def buscar_produto(produto_id: int, db: Session = Depends(get_db)):
-    return produto_service.buscar_por_id(db, produto_id)
+def buscar_produto(
+    produto_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Optional[UsuarioModel] = Depends(get_usuario_opcional),
+):
+    produto = produto_service.buscar_por_id(db, produto_id)
+    # Produto desativado some da vitrine também pelo link direto — só o admin ainda o vê
+    if not produto.disponivel and not _e_admin(usuario_atual):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Produto não encontrado",
+        )
+    return produto
 
 
 @router.put("/{produto_id}", response_model=ProdutoRead)

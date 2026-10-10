@@ -1,37 +1,22 @@
-import { useState } from 'react'
+import { Link } from 'react-router'
 
 import { formatCurrency } from '../utils/format'
+import { ProductImage } from './ProductImage'
 import { Card } from './ui/Card'
-import { BrandIcon } from './ui/Logo'
-
-function ProductImage({ src, alt }) {
-  const [failed, setFailed] = useState(false)
-
-  if (!src || failed) {
-    // Produto sem foto: mantém o card com a identidade da marca
-    return (
-      <div className="flex h-full w-full items-center justify-center bg-muted">
-        <BrandIcon className="h-24 opacity-40" />
-      </div>
-    )
-  }
-
-  return (
-    <img
-      src={src}
-      alt={alt}
-      loading="lazy"
-      onError={() => setFailed(true)}
-      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-    />
-  )
-}
 
 export function ProductCard({ product }) {
   return (
-    <Card className="group flex h-full flex-col overflow-hidden border-2 transition-all hover:border-gold hover:shadow-xl">
+    <Card
+      as={Link}
+      to={`/produto/${product.id}`}
+      className="group flex h-full flex-col overflow-hidden border-2 transition-all hover:border-gold hover:shadow-xl"
+    >
       <div className="aspect-[4/3] overflow-hidden">
-        <ProductImage src={product.foto} alt={product.nome} />
+        <ProductImage
+          src={product.foto}
+          alt={product.nome}
+          className="transition-transform duration-500 group-hover:scale-105"
+        />
       </div>
       <div className="flex flex-1 flex-col p-5">
         {product.categoria && (
@@ -43,7 +28,12 @@ export function ProductCard({ product }) {
         {product.descricao && (
           <p className="mb-4 line-clamp-3 flex-1 text-sm text-muted-foreground">{product.descricao}</p>
         )}
-        <span className="mt-auto font-serif text-xl text-gold-dark lining-nums">{formatCurrency(product.preco)}</span>
+        <div className="mt-auto flex items-center justify-between gap-3">
+          <span className="font-serif text-xl text-gold-dark lining-nums">{formatCurrency(product.preco)}</span>
+          <span className="text-sm font-medium text-chocolate underline-offset-4 group-hover:underline">
+            Ver detalhes
+          </span>
+        </div>
       </div>
     </Card>
   )

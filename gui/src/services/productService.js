@@ -6,6 +6,11 @@ export async function listProducts({ pagina = 1, limite = 100 } = {}) {
   return data
 }
 
+export async function getProduct(id) {
+  const { data } = await api.get(`/produtos/${id}`)
+  return data
+}
+
 export async function listCategories() {
   const { data } = await api.get('/categorias/')
   return data

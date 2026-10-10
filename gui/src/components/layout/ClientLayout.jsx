@@ -1,23 +1,49 @@
-import { LayoutDashboard, LogIn, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, LogIn, LogOut, Menu, ShoppingBag, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 
 import { useAuth } from '../../hooks/useAuth'
+import { useCarrinho } from '../../hooks/useCarrinho'
 import { cn } from '../../utils/cn'
 import { Button } from '../ui/Button'
 import { LogoHorizontal } from '../ui/Logo'
 
-const navItems = [
+const baseNav = [
   { to: '/', label: 'Início', end: true },
   { to: '/vitrine', label: 'Cardápio' },
 ]
+const clientNav = [...baseNav, { to: '/pedidos', label: 'Meus pedidos' }]
 
 function navClass({ isActive }) {
   return cn('transition-colors hover:text-gold', isActive && 'text-gold')
 }
 
+function CartLink() {
+  const { itemCount } = useCarrinho()
+  return (
+    <NavLink
+      to="/carrinho"
+      className={({ isActive }) =>
+        cn('relative flex h-10 w-10 items-center justify-center transition-colors hover:text-gold', isActive && 'text-gold')
+      }
+      aria-label={itemCount > 0 ? `Carrinho, ${itemCount} ${itemCount === 1 ? 'item' : 'itens'}` : 'Carrinho vazio'}
+    >
+      <ShoppingBag className="h-6 w-6" aria-hidden="true" />
+      {itemCount > 0 && (
+        <span
+          className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-terracotta px-1 text-xs font-semibold text-white tabular-nums"
+          aria-hidden="true"
+        >
+          {itemCount > 99 ? '99+' : itemCount}
+        </span>
+      )}
+    </NavLink>
+  )
+}
+
 export function ClientLayout() {
   const { isAuthenticated, isAdmin, logout } = useAuth()
+  const navItems = isAuthenticated && !isAdmin ? clientNav : baseNav
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [lastPath, setLastPath] = useState(location.pathname)
@@ -66,18 +92,23 @@ export function ClientLayout() {
                 {item.label}
               </NavLink>
             ))}
+            {!isAdmin && <CartLink />}
             <div className="flex items-center gap-6 border-l border-vanilla/20 pl-8">{accountActions}</div>
           </nav>
 
-          <button
-            type="button"
-            onClick={() => setMenuOpen((open) => !open)}
-            className="flex h-10 w-10 items-center justify-center md:hidden"
-            aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}
-            aria-expanded={menuOpen}
-          >
-            {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
+          {/* Mobile: carrinho sempre visível ao lado do menu */}
+          <div className="flex items-center gap-1 md:hidden">
+            {!isAdmin && <CartLink />}
+            <button
+              type="button"
+              onClick={() => setMenuOpen((open) => !open)}
+              className="flex h-10 w-10 items-center justify-center"
+              aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}
+              aria-expanded={menuOpen}
+            >
+              {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
         </div>
 
         {menuOpen && (
