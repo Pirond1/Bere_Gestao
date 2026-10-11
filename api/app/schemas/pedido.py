@@ -4,6 +4,7 @@ from typing import Optional
 
 from pydantic import AliasPath, BaseModel, Field
 
+from app.schemas.avaliacao import AvaliacaoRead
 from app.schemas.status_pedido import StatusPedidoRead
 
 
@@ -43,6 +44,8 @@ class PedidoRead(BaseModel):
     cliente_id: int
     status: StatusPedidoRead
     itens: list[ItemPedidoRead] = []
+    # Preenchida depois que o cliente avalia o pedido entregue (NPS)
+    avaliacao: Optional[AvaliacaoRead] = None
     created_at: datetime
     updated_at: datetime
 
