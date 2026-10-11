@@ -9,7 +9,13 @@ from app.models.agenda import AgendaModel
 from app.models.item_pedido import ItemPedidoModel
 from app.models.pedido import PedidoModel
 from app.schemas.pedido import PedidoCreate
-from app.services import agendamento_service, cliente_service, produto_service, status_pedido_service
+from app.services import (
+    agendamento_service,
+    cliente_service,
+    pagamento_service,
+    produto_service,
+    status_pedido_service,
+)
 
 
 def criar(db: Session, cliente_id: int, dados: PedidoCreate) -> PedidoModel:
@@ -93,7 +99,7 @@ def buscar_por_id(db: Session, pedido_id: int) -> PedidoModel:
 
 
 def atualizar_status(db: Session, pedido_id: int, status_id: int) -> PedidoModel:
-    """Altera o status do pedido (admin). Cancelar por aqui devolve a vaga da agenda."""
+    """Altera o status do pedido (admin). Cancelar por aqui devolve a vaga e estorna o pagamento."""
     pedido = buscar_por_id(db, pedido_id)
     if pedido.status.descricao == status_pedido_service.CANCELADO:
         raise HTTPException(
@@ -103,6 +109,7 @@ def atualizar_status(db: Session, pedido_id: int, status_id: int) -> PedidoModel
 
     novo_status = status_pedido_service.buscar_por_id(db, status_id)
     if novo_status.descricao == status_pedido_service.CANCELADO:
+        pagamento_service.encerrar(db, pedido)
         agendamento_service.liberar_vaga(db, pedido.agenda)
 
     pedido.status_id = novo_status.id
@@ -112,7 +119,10 @@ def atualizar_status(db: Session, pedido_id: int, status_id: int) -> PedidoModel
 
 
 def cancelar(db: Session, pedido_id: int, e_admin: bool = False) -> PedidoModel:
-    """Cancela o pedido e devolve a vaga do dia para outro cliente."""
+    """Cancela o pedido e devolve a vaga do dia para outro cliente.
+
+    Se já estiver pago, estorna no Mercado Pago; se o estorno falhar, nada é cancelado.
+    """
     pedido = buscar_por_id(db, pedido_id)
     if pedido.status.descricao == status_pedido_service.CANCELADO:
         raise HTTPException(
@@ -126,6 +136,7 @@ def cancelar(db: Session, pedido_id: int, e_admin: bool = False) -> PedidoModel:
         )
 
     cancelado = status_pedido_service.buscar_por_descricao(db, status_pedido_service.CANCELADO)
+    pagamento_service.encerrar(db, pedido)
     agendamento_service.liberar_vaga(db, pedido.agenda)
     pedido.status_id = cancelado.id
     db.commit()

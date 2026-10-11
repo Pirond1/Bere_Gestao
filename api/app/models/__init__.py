@@ -10,3 +10,6 @@ from app.models.agenda import AgendaModel
 from app.models.pedido import PedidoModel
 from app.models.item_pedido import ItemPedidoModel
 from app.models.avaliacao import AvaliacaoModel
+from app.models.metodo_pagamento import MetodoPagamentoModel
+from app.models.status_pagamento import StatusPagamentoModel
+from app.models.pagamento import PagamentoModel

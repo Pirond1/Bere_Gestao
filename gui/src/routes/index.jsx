@@ -9,6 +9,7 @@ import { Checkout } from '../pages/cliente/Checkout'
 import { Home } from '../pages/cliente/Home'
 import { Login } from '../pages/cliente/Login'
 import { MeusPedidos } from '../pages/cliente/MeusPedidos'
+import { Pagamento } from '../pages/cliente/Pagamento'
 import { PedidoDetalhe } from '../pages/cliente/PedidoDetalhe'
 import { Produto } from '../pages/cliente/Produto'
 import { Vitrine } from '../pages/cliente/Vitrine'
@@ -38,6 +39,7 @@ export const router = createBrowserRouter([
           { path: 'checkout', Component: Checkout },
           { path: 'pedidos', Component: MeusPedidos },
           { path: 'pedidos/:id', Component: PedidoDetalhe },
+          { path: 'pedidos/:id/pagamento', Component: Pagamento },
         ],
       },
       { path: '*', Component: NotFound },

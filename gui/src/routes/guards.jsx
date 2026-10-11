@@ -23,7 +23,7 @@ export function ProtectedRoute({ perfil }) {
 export function GuestRoute() {
   const { user, isAdmin } = useAuth()
   if (user) {
-    return <Navigate to={isAdmin ? '/admin' : '/vitrine'} replace />
+    return <Navigate to={isAdmin ? '/admin' : '/'} replace />
   }
   return <Outlet />
 }

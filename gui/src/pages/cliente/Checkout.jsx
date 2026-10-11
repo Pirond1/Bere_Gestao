@@ -14,6 +14,7 @@ import { createOrder, getAvailability } from '../../services/orderService'
 import { formatDateLong } from '../../utils/date'
 import { getErrorMessage } from '../../utils/errors'
 import { formatCurrency } from '../../utils/format'
+import { PAYMENT_DEADLINE_MINUTES } from '../../utils/paymentStatus'
 
 const MAX_NOTES = 500
 
@@ -55,8 +56,8 @@ export function Checkout() {
       })
       setPlaced(true)
       clear()
-      toast.success('Pedido realizado!')
-      navigate(`/pedidos/${pedido.id}?novo=1`, { replace: true })
+      toast.success('Data reservada!', { description: 'Agora é só concluir o pagamento.' })
+      navigate(`/pedidos/${pedido.id}/pagamento`, { replace: true })
     } catch (err) {
       setError(getErrorMessage(err, 'Não foi possível finalizar o pedido. Tente novamente.'))
       // A data pode ter lotado enquanto a cliente decidia — atualiza o calendário
@@ -163,10 +164,11 @@ export function Checkout() {
               disabled={!dataRetirada || syncing}
               loading={submitting}
             >
-              Confirmar pedido
+              Continuar para pagamento
             </Button>
             <p className="mt-3 text-center text-xs text-muted-foreground">
-              O pagamento é feito na próxima etapa. A vaga do dia fica reservada para você.
+              Na próxima etapa você paga com PIX ou cartão de crédito. A data fica reservada por{' '}
+              {PAYMENT_DEADLINE_MINUTES} minutos.
             </p>
           </Card>
         </aside>

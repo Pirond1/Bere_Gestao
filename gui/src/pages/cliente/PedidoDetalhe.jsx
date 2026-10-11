@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarDays, CircleCheck, Clock, QrCode, XCircle } from 'lucide-react'
+import { ArrowLeft, CalendarDays, CircleCheck, Clock, CreditCard, QrCode, Undo2, XCircle } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
@@ -11,12 +11,19 @@ import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { useAsync } from '../../hooks/useAsync'
 import { cancelOrder, getOrder } from '../../services/orderService'
+import { listPayments } from '../../services/paymentService'
 import { formatDateLong, formatDateTime } from '../../utils/date'
 import { getErrorMessage } from '../../utils/errors'
 import { formatCurrency } from '../../utils/format'
 import { STATUS, canClientCancel } from '../../utils/orderStatus'
+import {
+  PAYMENT_DEADLINE_MINUTES,
+  PAYMENT_METHOD,
+  PAYMENT_METHOD_LABEL,
+  PAYMENT_STATUS,
+} from '../../utils/paymentStatus'
 
-function CancelOrder({ pedidoId, onCancelled }) {
+function CancelOrder({ pedidoId, paid, onCancelled }) {
   const [confirming, setConfirming] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -25,9 +32,13 @@ function CancelOrder({ pedidoId, onCancelled }) {
     setLoading(true)
     setError('')
     try {
-      const updated = await cancelOrder(pedidoId)
-      toast.success('Pedido cancelado', { description: 'A data voltou a ficar livre na agenda.' })
-      onCancelled(updated)
+      await cancelOrder(pedidoId)
+      toast.success('Pedido cancelado', {
+        description: paid
+          ? 'O valor pago será devolvido na mesma forma de pagamento.'
+          : 'A data voltou a ficar livre na agenda.',
+      })
+      onCancelled()
     } catch (err) {
       setError(getErrorMessage(err))
       setLoading(false)
@@ -46,7 +57,11 @@ function CancelOrder({ pedidoId, onCancelled }) {
   return (
     <Card className="border-destructive/30 bg-destructive/5 p-4">
       <p className="mb-3 font-medium">Cancelar este pedido?</p>
-      <p className="mb-4 text-sm text-muted-foreground">Essa ação não pode ser desfeita.</p>
+      <p className="mb-4 text-sm text-muted-foreground">
+        {paid
+          ? 'O valor pago será estornado automaticamente. No PIX, volta para a sua conta; no cartão, aparece na fatura. Essa ação não pode ser desfeita.'
+          : 'Essa ação não pode ser desfeita.'}
+      </p>
       {error && <Alert className="mb-4">{error}</Alert>}
       <div className="flex flex-wrap gap-3">
         <Button className="bg-destructive hover:bg-destructive/90" onClick={handleCancel} loading={loading}>
@@ -60,15 +75,52 @@ function CancelOrder({ pedidoId, onCancelled }) {
   )
 }
 
+/** Como o pedido foi pago (ou estornado) — a tentativa que importa para o cliente. */
+function PaymentSummary({ pagamentos }) {
+  const pagamento =
+    pagamentos.find((p) => p.status === PAYMENT_STATUS.APROVADO) ??
+    pagamentos.find((p) => p.status === PAYMENT_STATUS.ESTORNADO)
+  if (!pagamento) return null
+
+  const Icon = pagamento.metodo === PAYMENT_METHOD.PIX ? QrCode : CreditCard
+  const refunded = pagamento.status === PAYMENT_STATUS.ESTORNADO
+
+  return (
+    <div className="mt-6 flex items-start gap-3 rounded-lg bg-muted p-4 text-sm">
+      {refunded ? (
+        <Undo2 className="mt-0.5 h-5 w-5 shrink-0 text-gold-dark" aria-hidden="true" />
+      ) : (
+        <Icon className="mt-0.5 h-5 w-5 shrink-0 text-gold-dark" aria-hidden="true" />
+      )}
+      <p>
+        {refunded ? (
+          <>
+            <span className="font-medium">Valor estornado</span> — {formatCurrency(pagamento.valor)} devolvidos no{' '}
+            {PAYMENT_METHOD_LABEL[pagamento.metodo]}.
+          </>
+        ) : (
+          <>
+            <span className="font-medium">Pago com {PAYMENT_METHOD_LABEL[pagamento.metodo]}</span> em{' '}
+            {formatDateTime(pagamento.data_hora)}.
+          </>
+        )}
+      </p>
+    </div>
+  )
+}
+
+async function loadOrder(id) {
+  const [pedido, pagamentos] = await Promise.all([getOrder(id), listPayments(id)])
+  return { pedido, pagamentos }
+}
+
 export function PedidoDetalhe() {
   const { id } = useParams()
   const [searchParams] = useSearchParams()
-  const isNew = searchParams.get('novo') === '1'
+  const justPaid = searchParams.get('pago') === '1'
 
-  const fetchOrder = useCallback(() => getOrder(id), [id])
-  const { data: fetched, loading, error } = useAsync(fetchOrder)
-  const [updated, setUpdated] = useState(null)
-  const pedido = updated ?? fetched
+  const fetchOrder = useCallback(() => loadOrder(id), [id])
+  const { data, loading, error, reload } = useAsync(fetchOrder)
 
   if (loading) {
     return (
@@ -92,8 +144,11 @@ export function PedidoDetalhe() {
     )
   }
 
+  const { pedido, pagamentos } = data
   const status = pedido.status.descricao
   const cancelled = status === STATUS.CANCELADO
+  const paid = pagamentos.some((p) => p.status === PAYMENT_STATUS.APROVADO)
+  const showPaidHero = justPaid && paid && !cancelled
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:py-12">
@@ -102,24 +157,28 @@ export function PedidoDetalhe() {
         Meus pedidos
       </Button>
 
-      {isNew && !cancelled && (
+      {showPaidHero && (
         <div className="mb-8 text-center">
           <CircleCheck className="mx-auto mb-4 h-16 w-16 text-gold-dark" aria-hidden="true" />
-          <h1 className="mb-2 text-3xl md:text-4xl">Pedido recebido!</h1>
+          <h1 className="mb-2 text-3xl md:text-4xl">Pagamento confirmado!</h1>
           <p className="text-lg text-muted-foreground">
-            Sua data de retirada está reservada. Agora é só concluir o pagamento.
+            Seu pedido já está na nossa fila de produção. Te esperamos na data da retirada.
           </p>
         </div>
       )}
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          {isNew && !cancelled ? (
-            <h2 className="text-2xl">Pedido #{pedido.id}</h2>
+          {showPaidHero ? (
+            <h2 className="text-2xl">Detalhes do pedido</h2>
           ) : (
-            <h1 className="text-3xl">Pedido #{pedido.id}</h1>
+            <h1 className="text-3xl">Detalhes do pedido</h1>
           )}
-          <p className="text-sm text-muted-foreground">Feito em {formatDateTime(pedido.data_pedido)}</p>
+          <p className="text-sm text-muted-foreground">
+            Feito em {formatDateTime(pedido.data_pedido)}
+            {/* Mesmo número que a loja vê no painel — útil se o cliente precisar falar com a loja */}
+            <span className="whitespace-nowrap"> · Código #{pedido.id}</span>
+          </p>
         </div>
         <OrderStatusBadge descricao={status} className="px-3 py-1 text-sm" />
       </div>
@@ -135,25 +194,25 @@ export function PedidoDetalhe() {
             </div>
           </div>
           {cancelled ? (
-            <p className="rounded-lg bg-red-50 p-4 text-sm text-red-800">
-              Este pedido foi cancelado.
-            </p>
+            <p className="rounded-lg bg-red-50 p-4 text-sm text-red-800">Este pedido foi cancelado.</p>
           ) : (
             <OrderTimeline descricao={status} />
           )}
         </Card>
 
-        {/* Pagamento — integração com o Mercado Pago entra na BG-5 */}
         {status === STATUS.AGUARDANDO_PAGAMENTO && (
-          <Card className="flex gap-4 border-2 border-gold/40 bg-gold/5 p-5 md:p-6">
-            <QrCode className="h-8 w-8 shrink-0 text-gold-dark" aria-hidden="true" />
-            <div>
-              <h2 className="mb-1 text-xl">Pagamento</h2>
+          <Card className="flex flex-col gap-4 border-2 border-gold/40 bg-gold/5 p-5 sm:flex-row sm:items-center md:p-6">
+            <QrCode className="hidden h-8 w-8 shrink-0 text-gold-dark sm:block" aria-hidden="true" />
+            <div className="flex-1">
+              <h2 className="mb-1 text-xl">Falta pagar</h2>
               <p className="text-muted-foreground">
-                O pagamento online por PIX ou cartão estará disponível aqui em breve. Assim que ele for
-                confirmado, seu pedido entra na fila de produção.
+                Pague com PIX ou cartão de crédito. Pedidos sem pagamento em {PAYMENT_DEADLINE_MINUTES} minutos são
+                cancelados e a data é liberada.
               </p>
             </div>
+            <Button as={Link} to={`/pedidos/${pedido.id}/pagamento`} variant="gold" size="lg" className="shrink-0">
+              Pagar agora
+            </Button>
           </Card>
         )}
 
@@ -181,6 +240,8 @@ export function PedidoDetalhe() {
             <span className="font-serif text-3xl text-gold-dark lining-nums">{formatCurrency(pedido.valor_total)}</span>
           </div>
 
+          <PaymentSummary pagamentos={pagamentos} />
+
           {pedido.observacoes && (
             <div className="mt-6 rounded-lg bg-muted p-4">
               <p className="mb-1 text-sm font-medium">Observações</p>
@@ -195,7 +256,7 @@ export function PedidoDetalhe() {
               <Clock className="h-4 w-4" aria-hidden="true" />
               Você pode cancelar enquanto o pedido não entrar em produção.
             </p>
-            <CancelOrder pedidoId={pedido.id} onCancelled={setUpdated} />
+            <CancelOrder pedidoId={pedido.id} paid={paid} onCancelled={reload} />
           </div>
         )}
       </div>
