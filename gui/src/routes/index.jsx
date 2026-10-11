@@ -2,7 +2,6 @@ import { createBrowserRouter } from 'react-router'
 
 import { AdminLayout } from '../components/layout/AdminLayout'
 import { ClientLayout } from '../components/layout/ClientLayout'
-import { AdminHome } from '../pages/admin/AdminHome'
 import { Cadastro } from '../pages/cliente/Cadastro'
 import { Carrinho } from '../pages/cliente/Carrinho'
 import { Checkout } from '../pages/cliente/Checkout'
@@ -51,7 +50,14 @@ export const router = createBrowserRouter([
     children: [
       {
         Component: AdminLayout,
-        children: [{ index: true, Component: AdminHome }],
+        // Carregadas sob demanda: os gráficos do painel não pesam no app do cliente
+        children: [
+          { index: true, lazy: () => import('../pages/admin/Dashboard').then((m) => ({ Component: m.Dashboard })) },
+          {
+            path: 'nps',
+            lazy: () => import('../pages/admin/RelatorioNPS').then((m) => ({ Component: m.RelatorioNPS })),
+          },
+        ],
       },
     ],
   },
