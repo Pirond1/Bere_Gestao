@@ -4,6 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 
 import { OrderStatusBadge } from '../../components/OrderStatusBadge'
+import { OrderReview } from '../../components/OrderReview'
 import { OrderTimeline } from '../../components/OrderTimeline'
 import { ProductImage } from '../../components/ProductImage'
 import { Alert } from '../../components/ui/Alert'
@@ -184,6 +185,11 @@ export function PedidoDetalhe() {
       </div>
 
       <div className="space-y-6">
+        {/* Pesquisa NPS: só depois da retirada, e no topo para não passar despercebida */}
+        {status === STATUS.ENTREGUE && (
+          <OrderReview pedidoId={pedido.id} avaliacao={pedido.avaliacao} onReviewed={reload} />
+        )}
+
         {/* Retirada + andamento */}
         <Card className="p-5 md:p-6">
           <div className="mb-6 flex items-center gap-3">

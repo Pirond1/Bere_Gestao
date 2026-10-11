@@ -1,4 +1,4 @@
-import { ChevronRight, ClipboardList, RotateCw } from 'lucide-react'
+import { ChevronRight, ClipboardList, RotateCw, Star } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { OrderStatusBadge } from '../../components/OrderStatusBadge'
@@ -8,6 +8,7 @@ import { useAsync } from '../../hooks/useAsync'
 import { listMyOrders } from '../../services/orderService'
 import { formatDateLong } from '../../utils/date'
 import { formatCurrency } from '../../utils/format'
+import { STATUS } from '../../utils/orderStatus'
 
 const itemsLabel = (itens) => {
   const n = itens.reduce((sum, i) => sum + i.quantidade, 0)
@@ -63,6 +64,12 @@ export function MeusPedidos() {
                   <p className="truncate text-sm text-muted-foreground">
                     {itemsLabel(pedido.itens)} · {pedido.itens.map((i) => i.produto_nome).join(', ')}
                   </p>
+                  {pedido.status.descricao === STATUS.ENTREGUE && !pedido.avaliacao && (
+                    <p className="mt-2 flex items-center gap-1.5 text-sm font-medium text-gold-dark">
+                      <Star className="h-4 w-4" aria-hidden="true" />
+                      Conte o que achou deste pedido
+                    </p>
+                  )}
                 </div>
                 <span className="shrink-0 font-serif text-lg text-gold-dark lining-nums">
                   {formatCurrency(pedido.valor_total)}
