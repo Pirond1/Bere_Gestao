@@ -5,7 +5,15 @@ from app.core.deps import get_usuario_atual
 from app.core.security import criar_token
 from app.db.session import get_db
 from app.models.usuario import UsuarioModel
-from app.schemas.auth import AlterarContaInput, AlterarContaRead, LoginInput, RegistroInput, RegistroRead, TokenResponse
+from app.schemas.auth import (
+    AlterarContaInput,
+    AlterarContaRead,
+    LoginInput,
+    MeRead,
+    RegistroInput,
+    RegistroRead,
+    TokenResponse,
+)
 from app.services import auth_service, usuario_service
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
@@ -21,6 +29,15 @@ def login(dados: LoginInput, db: Session = Depends(get_db)):
     usuario = usuario_service.autenticar(db, dados.email, dados.senha)
     token = criar_token({"sub": str(usuario.id), "tipo": usuario.tipoUsuario.descricao})
     return TokenResponse(access_token=token)
+
+
+@router.get("/me", response_model=MeRead)
+def dados_da_conta(usuario_atual: UsuarioModel = Depends(get_usuario_atual)):
+    """Dados mínimos da conta logada — o token só carrega o id e o perfil."""
+    return MeRead(
+        email=usuario_atual.email,
+        nome=usuario_atual.cliente.nome if usuario_atual.cliente else None,
+    )
 
 
 @router.put("/alterar", response_model=AlterarContaRead)

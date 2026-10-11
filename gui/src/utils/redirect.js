@@ -10,5 +10,5 @@ export function redirectAfterAuth(user, from) {
   if (path && !path.startsWith('/admin') && !AUTH_PAGES.includes(path)) {
     return path + (from.search ?? '')
   }
-  return '/vitrine'
+  return '/'
 }

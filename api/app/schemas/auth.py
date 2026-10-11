@@ -16,6 +16,11 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class MeRead(BaseModel):
+    email: str
+    nome: Optional[str] = None
+
+
 class RegistroInput(BaseModel):
     # campos de Usuario
     email: EmailStr

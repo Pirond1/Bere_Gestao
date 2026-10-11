@@ -21,3 +21,6 @@ class PedidoModel(BaseModel):
     status = relationship("StatusPedidoModel", back_populates="pedidos")
     itens = relationship("ItemPedidoModel", back_populates="pedido", cascade="all, delete-orphan")
     avaliacao = relationship("AvaliacaoModel", back_populates="pedido", uselist=False)
+    pagamentos = relationship(
+        "PagamentoModel", back_populates="pedido", order_by="PagamentoModel.id"
+    )

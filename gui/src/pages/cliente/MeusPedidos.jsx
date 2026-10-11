@@ -54,13 +54,12 @@ export function MeusPedidos() {
                 className="group flex items-center gap-4 border-2 p-5 transition-colors hover:border-gold"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <span className="font-serif text-lg">Pedido #{pedido.id}</span>
+                  {/* O cliente reconhece o pedido pela data de retirada, não por um número interno */}
+                  <p className="text-xs tracking-wide text-muted-foreground uppercase">Retirada</p>
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                    <span className="font-serif text-lg">{formatDateLong(pedido.data_retirada)}</span>
                     <OrderStatusBadge descricao={pedido.status.descricao} />
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Retirada: {formatDateLong(pedido.data_retirada)}
-                  </p>
                   <p className="truncate text-sm text-muted-foreground">
                     {itemsLabel(pedido.itens)} · {pedido.itens.map((i) => i.produto_nome).join(', ')}
                   </p>
