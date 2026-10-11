@@ -17,6 +17,7 @@ from app.routers import (
     pagamento,
     pedido,
     produto,
+    relatorio,
     status_pedido,
     usuario,
 )
@@ -64,6 +65,7 @@ app.include_router(agenda.router)
 app.include_router(pedido.router)
 app.include_router(pagamento.router)
 app.include_router(avaliacao.router)
+app.include_router(relatorio.router)
 
 
 @app.get("/")

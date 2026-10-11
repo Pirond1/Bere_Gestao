@@ -1,4 +1,4 @@
-import { Home, LayoutDashboard, LogOut, Menu, X } from 'lucide-react'
+import { Home, LayoutDashboard, LogOut, Menu, Star, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 
@@ -6,8 +6,11 @@ import { useAuth } from '../../hooks/useAuth'
 import { cn } from '../../utils/cn'
 import { BrandIcon } from '../ui/Logo'
 
-// Novos módulos do painel (Pedidos, Agenda, Produtos, Clientes, NPS) entram aqui nas próximas tarefas
-const adminNav = [{ to: '/admin', label: 'Visão geral', icon: LayoutDashboard, end: true }]
+// Novos módulos do painel (Pedidos, Agenda, Produtos, Clientes) entram aqui nas próximas tarefas
+const adminNav = [
+  { to: '/admin', label: 'Visão geral', icon: LayoutDashboard, end: true },
+  { to: '/admin/nps', label: 'Avaliações (NPS)', icon: Star },
+]
 
 function SidebarNav({ onLogout }) {
   return (
