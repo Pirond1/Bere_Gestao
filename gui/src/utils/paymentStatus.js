@@ -29,3 +29,11 @@ export function isPixOpen(pagamento) {
     Boolean(pagamento.expira_em)
   )
 }
+export const PAYMENT_STATUS_LABEL = {
+  [PAYMENT_STATUS.PENDENTE]: 'Pendente',
+  [PAYMENT_STATUS.APROVADO]: 'Aprovado',
+  [PAYMENT_STATUS.RECUSADO]: 'Recusado',
+  [PAYMENT_STATUS.CANCELADO]: 'Cancelado',
+  [PAYMENT_STATUS.EXPIRADO]: 'Expirado',
+  [PAYMENT_STATUS.ESTORNADO]: 'Estornado',
+}

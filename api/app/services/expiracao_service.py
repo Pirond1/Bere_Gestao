@@ -65,7 +65,9 @@ def _cancelar_pedidos_sem_pagamento(db: Session) -> None:
         if pagamento_service.ultima_atividade(pedido) >= limite:
             continue
         try:
-            pedido_service.cancelar(db, pedido.id, e_admin=True)
+            pedido_service.cancelar(
+                db, pedido.id, e_admin=True, motivo="Pagamento não realizado dentro do prazo"
+            )
             logger.info("Pedido %s cancelado por falta de pagamento", pedido.id)
         except Exception:
             db.rollback()

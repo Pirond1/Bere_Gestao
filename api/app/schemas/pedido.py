@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import AliasPath, BaseModel, Field
+from pydantic import AliasPath, BaseModel, Field, field_validator
 
 from app.schemas.avaliacao import AvaliacaoRead
 from app.schemas.status_pedido import StatusPedidoRead
@@ -19,8 +19,16 @@ class PedidoCreate(BaseModel):
     observacoes: Optional[str] = None
 
 
-class PedidoStatusUpdate(BaseModel):
-    status_id: int
+class PedidoCancelar(BaseModel):
+    # Opcional; só a loja informa — o cliente vê no detalhe do pedido
+    motivo: Optional[str] = Field(default=None, max_length=255)
+
+    @field_validator("motivo")
+    @classmethod
+    def limpar_motivo(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        return v.strip() or None
 
 
 class ItemPedidoRead(BaseModel):
@@ -41,6 +49,7 @@ class PedidoRead(BaseModel):
     data_retirada: date = Field(validation_alias=AliasPath("agenda", "data"))
     valor_total: Decimal
     observacoes: Optional[str]
+    motivo_cancelamento: Optional[str]
     cliente_id: int
     status: StatusPedidoRead
     itens: list[ItemPedidoRead] = []
@@ -50,3 +59,41 @@ class PedidoRead(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True, "populate_by_name": True}
+
+
+class ClienteResumoRead(BaseModel):
+    """Contato do cliente para a loja — só o necessário para atender o pedido (LGPD)."""
+
+    id: int
+    nome: str
+    telefone: Optional[str]
+    email: str = Field(validation_alias=AliasPath("usuario", "email"))
+
+    model_config = {"from_attributes": True, "populate_by_name": True}
+
+
+class PagamentoResumoRead(BaseModel):
+    id: int
+    metodo: str = Field(validation_alias=AliasPath("metodo", "descricao"))
+    status: str = Field(validation_alias=AliasPath("status", "descricao"))
+    status_detalhe: Optional[str]
+    valor: Decimal
+    data_hora: datetime
+
+    model_config = {"from_attributes": True, "populate_by_name": True}
+
+
+class PedidoPainelRead(PedidoRead):
+    """Pedido como a loja vê no painel: com contato do cliente e tentativas de pagamento."""
+
+    cliente: ClienteResumoRead
+    pagamentos: list[PagamentoResumoRead] = []
+
+
+class PedidoPainelPagina(BaseModel):
+    itens: list[PedidoPainelRead]
+    total: int
+    pagina: int
+    limite: int
+    # Quantidade por status com os demais filtros aplicados — números das abas
+    contagem_por_status: dict[str, int]

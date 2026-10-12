@@ -200,7 +200,10 @@ export function PedidoDetalhe() {
             </div>
           </div>
           {cancelled ? (
-            <p className="rounded-lg bg-red-50 p-4 text-sm text-red-800">Este pedido foi cancelado.</p>
+            <div className="rounded-lg bg-red-50 p-4 text-sm text-red-800">
+              <p>Este pedido foi cancelado.</p>
+              {pedido.motivo_cancelamento && <p className="mt-1">Motivo: {pedido.motivo_cancelamento}</p>}
+            </div>
           ) : (
             <OrderTimeline descricao={status} />
           )}
