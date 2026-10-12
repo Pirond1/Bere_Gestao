@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -11,6 +11,8 @@ class PedidoModel(BaseModel):
     data_pedido = Column(DateTime, server_default=func.now(), nullable=False)
     valor_total = Column(Numeric(10, 2), nullable=False)
     observacoes = Column(Text, nullable=True)
+    # Explicação mostrada ao cliente quando a loja (ou a expiração do PIX) cancela o pedido
+    motivo_cancelamento = Column(String(255), nullable=True)
     cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False)
     # A data de retirada vem da agenda, que controla a capacidade produtiva do dia
     agenda_id = Column(Integer, ForeignKey("agendas.id"), nullable=False)

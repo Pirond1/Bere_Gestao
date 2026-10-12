@@ -31,3 +31,20 @@ export const STATUS_FLOW = [
 export function canClientCancel(descricao) {
   return descricao === STATUS.AGUARDANDO_PAGAMENTO || descricao === STATUS.CONFIRMADO
 }
+// Etapas que a loja percorre no painel — mesma ordem de FLUXO_PRODUCAO no backend
+const PANEL_ACTIONS = {
+  [STATUS.CONFIRMADO]: { next: 'Iniciar produção' },
+  [STATUS.EM_PRODUCAO]: { next: 'Marcar como pronto', previous: 'Voltar para confirmado' },
+  [STATUS.PRONTO]: { next: 'Marcar como retirado', previous: 'Voltar para em produção' },
+  [STATUS.ENTREGUE]: { previous: 'Voltar para pronto' },
+}
+
+/** Rótulos dos botões "avançar" e "voltar" do painel para o status atual (ou {} se não houver). */
+export function panelActions(descricao) {
+  return PANEL_ACTIONS[descricao] ?? {}
+}
+
+// Retirado não pode ser cancelado (backend: pedido_service.cancelar)
+export function canAdminCancel(descricao) {
+  return descricao !== STATUS.CANCELADO && descricao !== STATUS.ENTREGUE
+}

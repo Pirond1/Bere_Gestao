@@ -53,6 +53,11 @@ export const router = createBrowserRouter([
         // Carregadas sob demanda: os gráficos do painel não pesam no app do cliente
         children: [
           { index: true, lazy: () => import('../pages/admin/Dashboard').then((m) => ({ Component: m.Dashboard })) },
+          { path: 'pedidos', lazy: () => import('../pages/admin/Pedidos').then((m) => ({ Component: m.Pedidos })) },
+          {
+            path: 'pedidos/:id',
+            lazy: () => import('../pages/admin/PedidoAdmin').then((m) => ({ Component: m.PedidoAdmin })),
+          },
           {
             path: 'nps',
             lazy: () => import('../pages/admin/RelatorioNPS').then((m) => ({ Component: m.RelatorioNPS })),

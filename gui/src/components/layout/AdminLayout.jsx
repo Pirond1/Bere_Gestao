@@ -1,4 +1,4 @@
-import { Home, LayoutDashboard, LogOut, Menu, Star, X } from 'lucide-react'
+import { ClipboardList, Home, LayoutDashboard, LogOut, Menu, Star, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 
@@ -6,9 +6,10 @@ import { useAuth } from '../../hooks/useAuth'
 import { cn } from '../../utils/cn'
 import { BrandIcon } from '../ui/Logo'
 
-// Novos módulos do painel (Pedidos, Agenda, Produtos, Clientes) entram aqui nas próximas tarefas
+// Novos módulos do painel (Agenda, Produtos, Clientes) entram aqui nas próximas tarefas
 const adminNav = [
   { to: '/admin', label: 'Visão geral', icon: LayoutDashboard, end: true },
+  { to: '/admin/pedidos', label: 'Pedidos', icon: ClipboardList },
   { to: '/admin/nps', label: 'Avaliações (NPS)', icon: Star },
 ]
 

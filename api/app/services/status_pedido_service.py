@@ -14,6 +14,10 @@ CANCELADO = "cancelado"
 # Status em que o cliente ainda pode cancelar o próprio pedido
 CANCELAVEIS_PELO_CLIENTE = (AGUARDANDO_PAGAMENTO, CONFIRMADO)
 
+# Etapas que a loja percorre depois do pagamento, uma de cada vez.
+# "Confirmado" só é alcançado pelo pagamento aprovado — nunca manualmente.
+FLUXO_PRODUCAO = (CONFIRMADO, EM_PRODUCAO, PRONTO, ENTREGUE)
+
 
 def listar(db: Session) -> list[StatusPedidoModel]:
     return db.query(StatusPedidoModel).order_by(StatusPedidoModel.id).all()
