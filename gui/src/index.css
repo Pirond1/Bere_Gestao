@@ -1,0 +1,57 @@
+@import 'tailwindcss';
+
+/* Identidade visual da Berê — layout e marrom do protótipo do Figma, dourado do logo oficial (src/assets/logo) */
+@theme {
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+
+  /* Marrom chocolate do protótipo — o do logo (#423612) puxa para o verde na interface */
+  --color-chocolate: #3e2723;
+  --color-chocolate-light: #4e3429;
+  /* Dourado exato do logo */
+  --color-gold: #c4aa41;
+  /* Dourado escurecido para texto sobre fundo claro (contraste 4.3:1 no branco) */
+  --color-gold-dark: #8c7a26;
+  --color-vanilla: #fdf5e6;
+  --color-terracotta: #e07856;
+
+  --color-background: #fdf5e6;
+  --color-foreground: #3e2723;
+  --color-card: #ffffff;
+  --color-muted: #f5ead8;
+  --color-muted-foreground: #6d5f54;
+  --color-border: rgb(62 39 35 / 0.15);
+  --color-destructive: #c0392b;
+  --color-success: #2e7d32;
+
+  --radius-lg: 0.75rem;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    /* Barra de rolagem sempre visível (desativada em páginas curtas): a largura útil
+       não muda entre páginas, então o layout não "pula" e header/rodapé vão até a borda */
+    overflow-y: scroll;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-serif font-semibold;
+  }
+
+  *,
+  ::before,
+  ::after {
+    @apply border-border;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-gold;
+  }
+}
