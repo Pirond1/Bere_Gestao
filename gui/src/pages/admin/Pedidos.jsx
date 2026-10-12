@@ -21,7 +21,15 @@ const STAGES = [
   { id: 'confirmados', label: 'Confirmados', status: [STATUS.CONFIRMADO], accent: 'border-sky-300 bg-sky-50' },
   { id: 'producao', label: 'Em produção', status: [STATUS.EM_PRODUCAO], accent: 'border-orange-300 bg-orange-50' },
   { id: 'prontos', label: 'Aguardando retirada', status: [STATUS.PRONTO], accent: 'border-emerald-300 bg-emerald-50' },
-  { id: 'retirados', label: 'Retirados', status: [STATUS.ENTREGUE], accent: 'border-stone-300 bg-stone-100', recentFirst: true },
+  // Sem filtro de data, mostra só os de hoje — o total histórico só cresceria e não diz nada do dia
+  {
+    id: 'retirados',
+    label: 'Retirados',
+    status: [STATUS.ENTREGUE],
+    accent: 'border-stone-300 bg-stone-100',
+    recentFirst: true,
+    todayWhenUnfiltered: true,
+  },
 ]
 
 // Abas para o que não é etapa de produção. O que está em andamento vem em ordem de retirada;
@@ -130,18 +138,36 @@ export function Pedidos() {
   const busca = useDebounced(searchInput.trim())
   const [pagina, setPagina] = useState(1)
 
-  const fetchOrders = useCallback(() => {
-    const [data_inicio, data_fim] = DATE_FILTERS.find((f) => f.id === dateFilter).range()
-    return listPanelOrders({
-      status: tab.status,
-      data_inicio,
-      data_fim,
-      busca: busca || undefined,
-      mais_recentes_primeiro: Boolean(tab.recentFirst),
-      pagina,
-      limite: PAGE_SIZE,
-    })
-  }, [tab, dateFilter, busca, pagina])
+  const unfiltered = dateFilter === 'qualquer'
+
+  const fetchOrders = useCallback(async () => {
+    const range = (id) => DATE_FILTERS.find((f) => f.id === id).range()
+    const [data_inicio, data_fim] = range(tab.todayWhenUnfiltered && unfiltered ? 'hoje' : dateFilter)
+    const [hoje] = range('hoje')
+
+    const [lista, retiradosHoje] = await Promise.all([
+      listPanelOrders({
+        status: tab.status,
+        data_inicio,
+        data_fim,
+        busca: busca || undefined,
+        mais_recentes_primeiro: Boolean(tab.recentFirst),
+        pagina,
+        limite: PAGE_SIZE,
+      }),
+      // Sem filtro de data, o cartão "Retirados" conta só os de hoje
+      unfiltered
+        ? listPanelOrders({
+            status: [STATUS.ENTREGUE],
+            data_inicio: hoje,
+            data_fim: hoje,
+            busca: busca || undefined,
+            limite: 1,
+          })
+        : null,
+    ])
+    return { ...lista, retirados_hoje: retiradosHoje?.total ?? null }
+  }, [tab, dateFilter, unfiltered, busca, pagina])
   const { data, loading, error, reload } = useAsync(fetchOrders)
 
   // Qualquer mudança de filtro volta para a primeira página
@@ -181,8 +207,13 @@ export function Pedidos() {
                 active && 'ring-2 ring-chocolate ring-offset-2 ring-offset-background',
               )}
             >
-              <span className="block font-serif text-3xl lining-nums">{countFor(stage) ?? '–'}</span>
-              <span className="text-sm">{stage.label}</span>
+              <span className="block font-serif text-3xl lining-nums">
+                {(stage.todayWhenUnfiltered && unfiltered ? data?.retirados_hoje : countFor(stage)) ?? '–'}
+              </span>
+              <span className="text-sm">
+                {stage.label}
+                {stage.todayWhenUnfiltered && unfiltered && ' hoje'}
+              </span>
             </button>
           )
         })}
