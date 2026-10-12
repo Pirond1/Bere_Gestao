@@ -22,7 +22,14 @@ import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { useAsync } from '../../hooks/useAsync'
-import { advanceOrder, cancelPanelOrder, getPanelOrder, revertOrder } from '../../services/adminOrderService'
+import {
+  advanceOrder,
+  cancelPanelOrder,
+  getPanelOrder,
+  markOrderSeen,
+  notifyOrdersChanged,
+  revertOrder,
+} from '../../services/adminOrderService'
 import { cn } from '../../utils/cn'
 import { formatDateLong, formatDateTime } from '../../utils/date'
 import { getErrorMessage } from '../../utils/errors'
@@ -223,7 +230,14 @@ function PaymentsCard({ pagamentos }) {
 
 export function PedidoAdmin() {
   const { id } = useParams()
-  const fetchOrder = useCallback(() => getPanelOrder(id), [id])
+  const fetchOrder = useCallback(async () => {
+    const pedido = await getPanelOrder(id)
+    if (!pedido.novo) return pedido
+    // Abrir o detalhe é o que tira o pedido da lista de novos
+    const visto = await markOrderSeen(id)
+    notifyOrdersChanged()
+    return visto
+  }, [id])
   const { data: pedido, loading, error, reload } = useAsync(fetchOrder)
 
   if (loading && !pedido) {
