@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Optional
 
@@ -175,11 +175,51 @@ def buscar_por_id(db: Session, pedido_id: int) -> PedidoModel:
     return pedido
 
 
+def _filtro_novos():
+    """Pedido novo: pago, ainda em andamento e que a loja nunca abriu no painel."""
+    return (
+        PedidoModel.visualizado_em.is_(None),
+        PedidoModel.status.has(
+            StatusPedidoModel.descricao.in_(status_pedido_service.EM_ANDAMENTO)
+        ),
+    )
+
+
+def _marcar_visto(pedido: PedidoModel) -> None:
+    # Guarda só a primeira vez; o banco grava datas em UTC
+    if pedido.visualizado_em is None:
+        pedido.visualizado_em = datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def contar_novos(db: Session) -> int:
+    return db.query(PedidoModel).filter(*_filtro_novos()).count()
+
+
+def marcar_visualizado(db: Session, pedido_id: int) -> PedidoModel:
+    """A loja abriu o detalhe do pedido — ele deixa de contar como novo."""
+    pedido = buscar_por_id(db, pedido_id)
+    _marcar_visto(pedido)
+    db.commit()
+    db.refresh(pedido)
+    return pedido
+
+
+def marcar_todos_visualizados(db: Session) -> int:
+    """Zera o indicador de pedidos novos. Retorna quantos foram marcados."""
+    novos = db.query(PedidoModel).filter(*_filtro_novos()).all()
+    for pedido in novos:
+        _marcar_visto(pedido)
+    db.commit()
+    return len(novos)
+
+
 def _mover_no_fluxo(db: Session, pedido: PedidoModel, passo: int) -> PedidoModel:
     novo = status_pedido_service.FLUXO_PRODUCAO[
         status_pedido_service.FLUXO_PRODUCAO.index(pedido.status.descricao) + passo
     ]
     pedido.status_id = status_pedido_service.buscar_por_descricao(db, novo).id
+    # Mexer no pedido (ex.: botão rápido da lista) significa que a loja já o viu
+    _marcar_visto(pedido)
     db.commit()
     db.refresh(pedido)
     return pedido

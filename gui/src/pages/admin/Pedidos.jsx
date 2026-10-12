@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, ClipboardList, MessageSquareText, RotateCw, Search } from 'lucide-react'
+import { CheckCheck, ChevronLeft, ChevronRight, ClipboardList, MessageSquareText, RotateCw, Search } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
@@ -7,7 +7,12 @@ import { OrderStatusBadge } from '../../components/OrderStatusBadge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { useAsync } from '../../hooks/useAsync'
-import { advanceOrder, listPanelOrders } from '../../services/adminOrderService'
+import {
+  advanceOrder,
+  listPanelOrders,
+  markAllOrdersSeen,
+  notifyOrdersChanged,
+} from '../../services/adminOrderService'
 import { cn } from '../../utils/cn'
 import { formatDateLong, toDateKey } from '../../utils/date'
 import { getErrorMessage } from '../../utils/errors'
@@ -95,6 +100,8 @@ function OrderRow({ pedido, onChanged }) {
         description: `Agora está como "${STATUS_INFO[atualizado.status.descricao].label}".`,
       })
       onChanged()
+      // Avançar também marca o pedido como visto
+      notifyOrdersChanged()
     } catch (err) {
       toast.error(getErrorMessage(err))
     } finally {
@@ -103,9 +110,17 @@ function OrderRow({ pedido, onChanged }) {
   }
 
   return (
-    <Card className="flex flex-col gap-3 p-4 transition-colors hover:border-gold sm:flex-row sm:items-center">
+    <Card
+      className={cn(
+        'flex flex-col gap-3 p-4 transition-colors hover:border-gold sm:flex-row sm:items-center',
+        pedido.novo && 'border-l-4 border-l-terracotta',
+      )}
+    >
       <Link to={`/admin/pedidos/${pedido.id}`} className="min-w-0 flex-1">
         <div className="mb-1 flex flex-wrap items-center gap-2">
+          {pedido.novo && (
+            <span className="rounded-full bg-terracotta px-2 py-0.5 text-xs font-semibold text-white">Novo</span>
+          )}
           <span className="font-medium">{pedido.cliente.nome}</span>
           <OrderStatusBadge descricao={pedido.status.descricao} />
           <span className="text-xs text-muted-foreground">Código #{pedido.id}</span>
@@ -128,6 +143,31 @@ function OrderRow({ pedido, onChanged }) {
         )}
       </div>
     </Card>
+  )
+}
+
+function MarkAllSeen({ onDone }) {
+  const [loading, setLoading] = useState(false)
+
+  const handleClick = async () => {
+    setLoading(true)
+    try {
+      const quantidade = await markAllOrdersSeen()
+      toast.success(`${quantidade} ${quantidade === 1 ? 'pedido marcado' : 'pedidos marcados'} como visto`)
+      notifyOrdersChanged()
+      onDone()
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Button variant="outline" size="sm" onClick={handleClick} loading={loading} className="self-start sm:self-auto">
+      <CheckCheck className="h-4 w-4" aria-hidden="true" />
+      Marcar todos como vistos
+    </Button>
   )
 }
 
@@ -187,9 +227,12 @@ export function Pedidos() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <header>
-        <h1 className="mb-1 text-3xl">Pedidos</h1>
-        <p className="text-muted-foreground">Acompanhe as encomendas pela data de retirada.</p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="mb-1 text-3xl">Pedidos</h1>
+          <p className="text-muted-foreground">Acompanhe as encomendas pela data de retirada.</p>
+        </div>
+        {data?.itens.some((p) => p.novo) && <MarkAllSeen onDone={reload} />}
       </header>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" role="group" aria-label="Pedidos por etapa">
