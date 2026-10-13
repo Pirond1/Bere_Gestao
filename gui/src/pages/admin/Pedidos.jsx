@@ -7,6 +7,7 @@ import { OrderStatusBadge } from '../../components/OrderStatusBadge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { useAsync } from '../../hooks/useAsync'
+import { usePolling } from '../../hooks/usePolling'
 import {
   advanceOrder,
   listPanelOrders,
@@ -208,7 +209,9 @@ export function Pedidos() {
     ])
     return { ...lista, retirados_hoje: retiradosHoje?.total ?? null }
   }, [tab, dateFilter, unfiltered, busca, pagina])
-  const { data, loading, error, reload } = useAsync(fetchOrders)
+  const { data, loading, error, reload, refresh } = useAsync(fetchOrders)
+  // Pedidos que chegam com a tela aberta aparecem sem trocar de página
+  usePolling(refresh)
 
   // Qualquer mudança de filtro volta para a primeira página
   const changeFilter = (setter) => (value) => {

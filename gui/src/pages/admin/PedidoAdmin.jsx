@@ -22,6 +22,7 @@ import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { useAsync } from '../../hooks/useAsync'
+import { usePolling } from '../../hooks/usePolling'
 import {
   advanceOrder,
   cancelPanelOrder,
@@ -293,7 +294,9 @@ export function PedidoAdmin() {
     notifyOrdersChanged()
     return visto
   }, [id])
-  const { data: pedido, loading, error, reload } = useAsync(fetchOrder)
+  const { data: pedido, loading, error, reload, refresh } = useAsync(fetchOrder)
+  // Pagamento aprovado, cancelamento do cliente ou PIX expirado aparecem com a tela aberta
+  usePolling(refresh)
 
   if (loading && !pedido) {
     return (
