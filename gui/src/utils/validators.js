@@ -1,5 +1,8 @@
 import { onlyDigits } from './format'
 
+// Mesmo mínimo de schemas/auth.py
+export const MIN_PASSWORD = 8
+
 // Mesma regra de schemas/cliente.py — validar aqui só antecipa o erro para o usuário
 export function isValidCpf(value) {
   const cpf = onlyDigits(value)
