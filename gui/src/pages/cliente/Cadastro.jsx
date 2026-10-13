@@ -12,7 +12,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { getErrorMessage } from '../../utils/errors'
 import { maskCpf, maskPhone, onlyDigits } from '../../utils/format'
 import { redirectAfterAuth } from '../../utils/redirect'
-import { isValidCpf, isValidEmail, isValidPhone } from '../../utils/validators'
+import { MIN_PASSWORD, isValidCpf, isValidEmail, isValidPhone } from '../../utils/validators'
 
 const initialForm = {
   nome: '',
@@ -31,6 +31,7 @@ function validate(form) {
   if (!isValidCpf(form.cpf)) errors.cpf = 'CPF inválido'
   if (form.telefone && !isValidPhone(form.telefone)) errors.telefone = 'Informe DDD + número'
   if (!form.senha) errors.senha = 'Crie uma senha'
+  else if (form.senha.length < MIN_PASSWORD) errors.senha = `A senha precisa ter pelo menos ${MIN_PASSWORD} caracteres`
   if (form.confirmarSenha !== form.senha) errors.confirmarSenha = 'As senhas não coincidem'
   return errors
 }
@@ -150,6 +151,7 @@ export function Cadastro() {
           value={form.senha}
           onChange={update('senha')}
           error={errors.senha}
+          hint={`Pelo menos ${MIN_PASSWORD} caracteres.`}
         />
 
         <PasswordField

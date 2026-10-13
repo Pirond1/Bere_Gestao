@@ -24,3 +24,8 @@ export function maskPhone(value) {
   }
   return digits.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2')
 }
+export function maskCep(value) {
+  return onlyDigits(value)
+    .slice(0, 8)
+    .replace(/(\d{5})(\d)/, '$1-$2')
+}

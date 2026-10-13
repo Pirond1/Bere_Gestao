@@ -8,6 +8,7 @@ import { Checkout } from '../pages/cliente/Checkout'
 import { Home } from '../pages/cliente/Home'
 import { Login } from '../pages/cliente/Login'
 import { MeusPedidos } from '../pages/cliente/MeusPedidos'
+import { MinhaConta } from '../pages/cliente/MinhaConta'
 import { Pagamento } from '../pages/cliente/Pagamento'
 import { PedidoDetalhe } from '../pages/cliente/PedidoDetalhe'
 import { Produto } from '../pages/cliente/Produto'
@@ -39,6 +40,7 @@ export const router = createBrowserRouter([
           { path: 'pedidos', Component: MeusPedidos },
           { path: 'pedidos/:id', Component: PedidoDetalhe },
           { path: 'pedidos/:id/pagamento', Component: Pagamento },
+          { path: 'conta', Component: MinhaConta },
         ],
       },
       { path: '*', Component: NotFound },
