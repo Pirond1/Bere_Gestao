@@ -26,16 +26,19 @@ import {
   advanceOrder,
   cancelPanelOrder,
   getPanelOrder,
+  markOrderNotified,
   markOrderSeen,
   notifyOrdersChanged,
   revertOrder,
 } from '../../services/adminOrderService'
+import { getSettings } from '../../services/settingsService'
 import { cn } from '../../utils/cn'
 import { formatDateLong, formatDateTime } from '../../utils/date'
 import { getErrorMessage } from '../../utils/errors'
 import { formatCurrency, maskPhone } from '../../utils/format'
 import { STATUS, STATUS_INFO, canAdminCancel, panelActions } from '../../utils/orderStatus'
 import { PAYMENT_METHOD, PAYMENT_METHOD_LABEL, PAYMENT_STATUS, PAYMENT_STATUS_LABEL } from '../../utils/paymentStatus'
+import { readyOrderMessage, whatsappLink } from '../../utils/whatsapp'
 
 const MAX_REASON = 255
 
@@ -86,6 +89,58 @@ function StatusActions({ pedido, onChanged }) {
           {previous}
         </Button>
       )}
+    </div>
+  )
+}
+
+/** Pedido pronto: avisar o cliente pelo WhatsApp com a mensagem já escrita. */
+function ReadyNotice({ pedido, onNotified }) {
+  // Endereço e horário de retirada da loja entram na mensagem
+  const { data: configuracao, loading } = useAsync(getSettings)
+  const { nome, telefone } = pedido.cliente
+  const primeiroNome = nome.trim().split(/\s+/)[0]
+
+  if (!telefone) {
+    return (
+      <p className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">
+        O pedido está pronto, mas {primeiroNome} não tem telefone cadastrado. Avise pelo e-mail ao lado.
+      </p>
+    )
+  }
+
+  // O link abre o WhatsApp normalmente; o registro do aviso segue em paralelo
+  const handleClick = async () => {
+    try {
+      await markOrderNotified(pedido.id)
+      onNotified()
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+    }
+  }
+
+  const avisado = Boolean(pedido.avisado_em)
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border-2 border-emerald-300 bg-emerald-50 p-4 sm:flex-row sm:items-center">
+      <div className="flex-1 text-sm">
+        <p className="font-medium">Avise {primeiroNome} que o pedido está pronto</p>
+        <p className="text-muted-foreground">
+          {avisado ? `Avisado em ${formatDateTime(pedido.avisado_em)}` : 'O cliente ainda não foi avisado.'}
+        </p>
+      </div>
+      <Button
+        as="a"
+        href={whatsappLink(telefone, readyOrderMessage(pedido, configuracao))}
+        target="_blank"
+        rel="noreferrer"
+        onClick={handleClick}
+        variant={avisado ? 'outline' : 'primary'}
+        aria-disabled={loading}
+        className={cn('shrink-0', loading && 'pointer-events-none opacity-60')}
+      >
+        <MessageCircle className="h-4 w-4" aria-hidden="true" />
+        {avisado ? 'Avisar de novo' : 'Avisar pelo WhatsApp'}
+      </Button>
     </div>
   )
 }
@@ -168,7 +223,7 @@ function CustomerCard({ cliente }) {
               {maskPhone(digits)}
             </a>
             <a
-              href={`https://wa.me/55${digits}`}
+              href={whatsappLink(digits)}
               target="_blank"
               rel="noreferrer"
               className="ml-auto flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success hover:bg-success/20"
@@ -307,6 +362,8 @@ export function PedidoAdmin() {
                 cancelado se o prazo acabar.
               </p>
             )}
+
+            {status === STATUS.PRONTO && <ReadyNotice pedido={pedido} onNotified={reload} />}
 
             <StatusActions pedido={pedido} onChanged={reload} />
           </Card>

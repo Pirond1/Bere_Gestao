@@ -47,6 +47,12 @@ export async function markOrderSeen(id) {
   return data
 }
 
+/** A loja abriu o WhatsApp para avisar que o pedido está pronto — grava o horário do aviso. */
+export async function markOrderNotified(id) {
+  const { data } = await api.patch(`/pedidos/${id}/avisado`)
+  return data
+}
+
 export async function markAllOrdersSeen() {
   const { data } = await api.post('/pedidos/painel/marcar-vistos')
   return data.quantidade
