@@ -213,6 +213,21 @@ def marcar_todos_visualizados(db: Session) -> int:
     return len(novos)
 
 
+def marcar_avisado(db: Session, pedido_id: int) -> PedidoModel:
+    """A loja avisou o cliente que o pedido está pronto. Guarda o último aviso (admin)."""
+    pedido = buscar_por_id(db, pedido_id)
+    if pedido.status.descricao != status_pedido_service.PRONTO:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Só é possível avisar o cliente quando o pedido está pronto para retirada",
+        )
+    pedido.avisado_em = datetime.now(timezone.utc).replace(tzinfo=None)
+    _marcar_visto(pedido)
+    db.commit()
+    db.refresh(pedido)
+    return pedido
+
+
 def _mover_no_fluxo(db: Session, pedido: PedidoModel, passo: int) -> PedidoModel:
     novo = status_pedido_service.FLUXO_PRODUCAO[
         status_pedido_service.FLUXO_PRODUCAO.index(pedido.status.descricao) + passo

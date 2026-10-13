@@ -28,6 +28,7 @@ import { cn } from '../../utils/cn'
 import { capitalizeFirst, formatDateTime, parseDate } from '../../utils/date'
 import { maskPhone } from '../../utils/format'
 import { periodFromPreset } from '../../utils/period'
+import { whatsappLink } from '../../utils/whatsapp'
 
 // Faixas do NPS: promotores 9–10, neutros 7–8, detratores 0–6
 const GROUPS = {
@@ -142,8 +143,6 @@ function ResponseRate({ entregues, avaliados }) {
     </div>
   )
 }
-
-const whatsappLink = (telefone) => `https://wa.me/55${telefone.replace(/\D/g, '')}`
 
 /** Clientes insatisfeitos recentes — um contato da loja pode reverter a experiência. */
 function Detractors({ detratores, total }) {

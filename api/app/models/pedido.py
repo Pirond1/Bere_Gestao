@@ -15,6 +15,8 @@ class PedidoModel(BaseModel):
     motivo_cancelamento = Column(String(255), nullable=True)
     # Quando a loja abriu (ou movimentou) o pedido no painel pela primeira vez — nulo = pedido novo
     visualizado_em = Column(DateTime, nullable=True)
+    # Última vez que a loja avisou o cliente (WhatsApp) que o pedido está pronto para retirada
+    avisado_em = Column(DateTime, nullable=True)
     cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False)
     # A data de retirada vem da agenda, que controla a capacidade produtiva do dia
     agenda_id = Column(Integer, ForeignKey("agendas.id"), nullable=False)

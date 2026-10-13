@@ -94,6 +94,12 @@ def marcar_pedido_visualizado(pedido_id: int, db: Session = Depends(get_db), _=D
     return pedido_service.marcar_visualizado(db, pedido_id)
 
 
+@router.patch("/{pedido_id}/avisado", response_model=PedidoPainelRead)
+def marcar_pedido_avisado(pedido_id: int, db: Session = Depends(get_db), _=Depends(get_admin_atual)):
+    """A loja abriu o WhatsApp para avisar que o pedido está pronto para retirada."""
+    return pedido_service.marcar_avisado(db, pedido_id)
+
+
 @router.get("/{pedido_id}", response_model=PedidoRead)
 def buscar_pedido(
     pedido_id: int,

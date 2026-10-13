@@ -90,6 +90,7 @@ class PedidoPainelRead(PedidoRead):
     cliente: ClienteResumoRead
     pagamentos: list[PagamentoResumoRead] = []
     visualizado_em: Optional[datetime]
+    avisado_em: Optional[datetime]
 
     @computed_field
     @property
