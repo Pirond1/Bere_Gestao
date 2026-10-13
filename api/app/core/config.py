@@ -1,4 +1,10 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings
+
+# Arquivos enviados pelo painel (fotos de produtos) — fora do git; no deploy precisa de volume persistente
+UPLOADS_DIR = Path(__file__).resolve().parent.parent / "uploads"
+UPLOADS_URL = "/uploads"
 
 
 class Settings(BaseSettings):
