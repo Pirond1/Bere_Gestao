@@ -59,6 +59,15 @@ export const router = createBrowserRouter([
             lazy: () => import('../pages/admin/PedidoAdmin').then((m) => ({ Component: m.PedidoAdmin })),
           },
           {
+            path: 'produtos',
+            lazy: () => import('../pages/admin/Produtos').then((m) => ({ Component: m.Produtos })),
+          },
+          {
+            // "novo" e o id do produto usam a mesma tela
+            path: 'produtos/:id',
+            lazy: () => import('../pages/admin/ProdutoForm').then((m) => ({ Component: m.ProdutoForm })),
+          },
+          {
             path: 'agenda',
             lazy: () => import('../pages/admin/Agenda').then((m) => ({ Component: m.Agenda })),
           },

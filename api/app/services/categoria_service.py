@@ -35,7 +35,7 @@ def buscar_por_id(db: Session, categoria_id: int) -> CategoriaModel:
 def atualizar(db: Session, categoria_id: int, dados: CategoriaUpdate) -> CategoriaModel:
     categoria = buscar_por_id(db, categoria_id)
     campos = dados.model_dump(exclude_unset=True)
-    if "nome" in campos:
+    if campos.get("nome"):
         conflito = db.query(CategoriaModel).filter(
             CategoriaModel.nome == campos["nome"],
             CategoriaModel.id != categoria_id,
@@ -46,6 +46,9 @@ def atualizar(db: Session, categoria_id: int, dados: CategoriaUpdate) -> Categor
                 detail="Já existe uma categoria com esse nome",
             )
     for campo, valor in campos.items():
+        # Nulo apaga a descrição; no nome significa "não mudar"
+        if valor is None and campo != "descricao":
+            continue
         setattr(categoria, campo, valor)
     db.commit()
     db.refresh(categoria)

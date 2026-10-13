@@ -1,11 +1,13 @@
 import asyncio
 import logging
+import mimetypes
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
-from app.core.config import settings
+from app.core.config import UPLOADS_DIR, UPLOADS_URL, settings
 from app.routers import (
     agenda,
     auth,
@@ -66,6 +68,11 @@ app.include_router(pedido.router)
 app.include_router(pagamento.router)
 app.include_router(avaliacao.router)
 app.include_router(relatorio.router)
+
+# Fotos enviadas pelo painel (BG-13). O Python 3.12 não conhece .webp e serviria como octet-stream
+mimetypes.add_type("image/webp", ".webp")
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount(UPLOADS_URL, StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 
 @app.get("/")

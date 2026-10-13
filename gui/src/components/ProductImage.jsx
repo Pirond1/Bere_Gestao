@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { cn } from '../utils/cn'
+import { mediaUrl } from '../utils/media'
 import { BrandIcon } from './ui/Logo'
 
 /** Foto do produto; sem foto (ou com link quebrado) mostra o ícone da marca. */
@@ -17,7 +18,7 @@ export function ProductImage({ src, alt, className, iconClassName = 'h-1/3' }) {
 
   return (
     <img
-      src={src}
+      src={mediaUrl(src)}
       alt={alt}
       loading="lazy"
       onError={() => setFailed(true)}
