@@ -11,6 +11,7 @@ from app.models.pagamento import PagamentoModel
 from app.models.pedido import PedidoModel
 from app.schemas.pagamento import PagamentoCreate
 from app.services import (
+    configuracao_service,
     mercadopago_service as mp,
     metodo_pagamento_service,
     status_pagamento_service,
@@ -125,7 +126,7 @@ def _somente_digitos(valor: str) -> str:
     return re.sub(r"\D", "", valor or "")
 
 
-def _montar_order(pedido: PedidoModel, dados: PagamentoCreate) -> dict:
+def _montar_order(pedido: PedidoModel, dados: PagamentoCreate, prazo_minutos: int) -> dict:
     cliente = pedido.cliente
     nomes = cliente.nome.split()
     pagador = {
@@ -142,7 +143,7 @@ def _montar_order(pedido: PedidoModel, dados: PagamentoCreate) -> dict:
         transacao = {
             "amount": valor,
             "payment_method": forma,
-            "expiration_time": f"PT{settings.PRAZO_PAGAMENTO_MINUTOS}M",
+            "expiration_time": f"PT{prazo_minutos}M",
         }
         if settings.MERCADOPAGO_SANDBOX:
             pagador["email"] = EMAIL_TESTE_PIX
@@ -225,7 +226,9 @@ def criar(db: Session, pedido_id: int, dados: PagamentoCreate) -> PagamentoModel
         )
 
     chave = str(uuid.uuid4())
-    order = mp.criar_order(_montar_order(pedido, dados), chave)
+    # Prazo do PIX definido pela proprietária no painel
+    prazo_minutos = configuracao_service.obter(db).prazo_pagamento_minutos
+    order = mp.criar_order(_montar_order(pedido, dados, prazo_minutos), chave)
     meio = _transacao(order).get("payment_method") or {}
 
     pagamento = PagamentoModel(
@@ -242,7 +245,7 @@ def criar(db: Session, pedido_id: int, dados: PagamentoCreate) -> PagamentoModel
         ticket_url=meio.get("ticket_url"),
     )
     if dados.metodo == metodo_pagamento_service.PIX:
-        pagamento.expira_em = datetime.now() + timedelta(minutes=settings.PRAZO_PAGAMENTO_MINUTOS)
+        pagamento.expira_em = datetime.now() + timedelta(minutes=prazo_minutos)
     db.add(pagamento)
     db.flush()
     db.refresh(pagamento, ["pedido", "status"])

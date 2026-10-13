@@ -1,37 +1,33 @@
-from datetime import date, datetime
+from datetime import date
 from typing import Optional
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field
 
 
-class AgendaCreate(BaseModel):
-    data: date
-    capacidade_maxima: int = Field(ge=0)
-    bloqueada: bool = False
+class AgendaDiaUpdate(BaseModel):
+    """Ajuste de um dia pela proprietária. Campo ausente não muda; nulo volta a seguir a configuração."""
 
-
-class AgendaUpdate(BaseModel):
-    capacidade_maxima: Optional[int] = Field(default=None, ge=0)
+    # Nulo = capacidade padrão
+    capacidade_maxima: Optional[int] = Field(default=None, ge=0, le=500)
+    # Nulo = segue os dias da semana fechados; true = fechado; false = aberto como exceção
     bloqueada: Optional[bool] = None
 
 
-class AgendaRead(BaseModel):
-    id: int
+class DiaAgendaRead(BaseModel):
+    """Um dia no calendário do painel, já com a configuração aplicada."""
+
     data: date
-    capacidade_maxima: int
+    # Capacidade que vale para o dia (a personalizada ou a padrão)
+    capacidade: int
+    capacidade_personalizada: Optional[int]
     pedidos_registrados: int
-    bloqueada: bool
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = {"from_attributes": True}
-
-    @computed_field
-    @property
-    def vagas_disponiveis(self) -> int:
-        if self.bloqueada:
-            return 0
-        return max(self.capacidade_maxima - self.pedidos_registrados, 0)
+    # Situação final do dia e de onde ela vem
+    fechado: bool
+    bloqueio_dia: Optional[bool]
+    fechado_na_semana: bool
+    vagas_disponiveis: int
+    # Antes de hoje — só consulta, não pode ser ajustado
+    passado: bool
 
 
 class DiaDisponivelRead(BaseModel):

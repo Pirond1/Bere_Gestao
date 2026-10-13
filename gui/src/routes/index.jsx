@@ -59,6 +59,14 @@ export const router = createBrowserRouter([
             lazy: () => import('../pages/admin/PedidoAdmin').then((m) => ({ Component: m.PedidoAdmin })),
           },
           {
+            path: 'agenda',
+            lazy: () => import('../pages/admin/Agenda').then((m) => ({ Component: m.Agenda })),
+          },
+          {
+            path: 'configuracoes',
+            lazy: () => import('../pages/admin/Configuracoes').then((m) => ({ Component: m.Configuracoes })),
+          },
+          {
             path: 'nps',
             lazy: () => import('../pages/admin/RelatorioNPS').then((m) => ({ Component: m.RelatorioNPS })),
           },
