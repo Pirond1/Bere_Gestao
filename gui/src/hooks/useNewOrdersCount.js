@@ -1,22 +1,42 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
+import { toast } from 'sonner'
 
-import { getNewOrdersCount, onOrdersChanged } from '../services/adminOrderService'
-
-// Pedido pago chega pelo webhook a qualquer momento — o painel confere de tempos em tempos
-const POLL_INTERVAL_MS = 60_000
+import { getNewOrdersCount, notifyOrdersChanged, onOrdersChanged } from '../services/adminOrderService'
+import { POLL_INTERVAL_MS } from './usePolling'
 
 /**
  * Quantidade de pedidos novos para o indicador do menu.
- * Atualiza a cada minuto, ao voltar para a aba e quando o painel avisa que algo mudou.
+ * Atualiza a cada 30 s (inclusive em segundo plano, para o título da aba), ao voltar para a aba
+ * e quando o painel avisa que algo mudou. Se aumentar, avisa a dona e faz as telas abertas recarregarem.
  */
 export function useNewOrdersCount() {
   const [count, setCount] = useState(0)
+  const lastCount = useRef(null)
+  // Em ref para o efeito não reiniciar (e reconsultar) a cada troca de página
+  const navigate = useNavigate()
+  const navigateRef = useRef(navigate)
+  useEffect(() => {
+    navigateRef.current = navigate
+  })
 
   useEffect(() => {
     let active = true
     const refresh = () => {
       getNewOrdersCount()
-        .then((n) => active && setCount(n))
+        .then((n) => {
+          if (!active) return
+          const chegaram = lastCount.current === null ? 0 : n - lastCount.current
+          lastCount.current = n
+          setCount(n)
+          if (chegaram > 0) {
+            toast.info(chegaram === 1 ? 'Novo pedido recebido' : `${chegaram} pedidos novos recebidos`, {
+              action: { label: 'Ver', onClick: () => navigateRef.current('/admin/pedidos') },
+            })
+            // A lista/detalhe abertos recarregam na hora, sem esperar o próximo ciclo
+            notifyOrdersChanged()
+          }
+        })
         // Falha pontual (rede, servidor reiniciando) não deve quebrar o menu
         .catch(() => {})
     }
