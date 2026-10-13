@@ -15,7 +15,12 @@ from app.models.pedido import PedidoModel
 from app.models.produto import ProdutoModel
 from app.models.status_pagamento import StatusPagamentoModel
 from app.models.status_pedido import StatusPedidoModel
-from app.services import configuracao_service, status_pagamento_service, status_pedido_service
+from app.services import (
+    agendamento_service,
+    configuracao_service,
+    status_pagamento_service,
+    status_pedido_service,
+)
 
 # O banco grava em UTC, mas a dona enxerga o dia no horário de Brasília
 FUSO_LOJA = ZoneInfo("America/Sao_Paulo")
@@ -245,18 +250,16 @@ def proximas_retiradas(db: Session, dias: int = DIAS_PROXIMAS_RETIRADAS) -> list
     resultado = []
     for deslocamento in range(dias):
         data = hoje + timedelta(days=deslocamento)
-        agenda = agendas.get(data)
+        dia = agendamento_service.situacao(agendas.get(data), data, configuracao)
         resultado.append(
             {
                 "data": data,
                 "pedidos_pagos": pagos[data]["pedidos"],
                 "itens": pagos[data]["itens"],
                 # Inclui pedidos aguardando pagamento, que já seguram a vaga
-                "vagas_ocupadas": agenda.pedidos_registrados if agenda else 0,
-                "capacidade_maxima": (
-                    agenda.capacidade_maxima if agenda else configuracao.capacidade_produtiva_padrao
-                ),
-                "bloqueada": agenda.bloqueada if agenda else False,
+                "vagas_ocupadas": dia.pedidos_registrados,
+                "capacidade_maxima": dia.capacidade,
+                "bloqueada": dia.fechado,
             }
         )
     return resultado

@@ -13,9 +13,6 @@ export const PAYMENT_METHOD = {
   CARTAO_CREDITO: 'cartao_credito',
 }
 
-// Mesmo valor de PRAZO_PAGAMENTO_MINUTOS na API — depois disso o pedido não pago é cancelado
-export const PAYMENT_DEADLINE_MINUTES = 30
-
 export const PAYMENT_METHOD_LABEL = {
   [PAYMENT_METHOD.PIX]: 'PIX',
   [PAYMENT_METHOD.CARTAO_CREDITO]: 'cartão de crédito',

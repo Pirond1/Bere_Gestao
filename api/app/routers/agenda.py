@@ -1,12 +1,11 @@
 from datetime import date
-from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_admin_atual
 from app.db.session import get_db
-from app.schemas.agenda import AgendaCreate, AgendaRead, AgendaUpdate, DiaDisponivelRead
+from app.schemas.agenda import AgendaDiaUpdate, DiaAgendaRead, DiaDisponivelRead
 from app.services import agendamento_service
 
 router = APIRouter(prefix="/agenda", tags=["Agenda"])
@@ -21,31 +20,23 @@ def consultar_disponibilidade(
     return agendamento_service.listar_disponibilidade(db, dias)
 
 
-@router.get("/", response_model=list[AgendaRead])
-def listar_agenda(
-    data_inicio: Optional[date] = None,
-    data_fim: Optional[date] = None,
+@router.get("/calendario", response_model=list[DiaAgendaRead])
+def consultar_calendario(
+    inicio: date,
+    fim: date,
     db: Session = Depends(get_db),
     _=Depends(get_admin_atual),
 ):
-    return agendamento_service.listar(db, data_inicio, data_fim)
+    """Dias do período com capacidade, pedidos e bloqueio já resolvidos — calendário do painel."""
+    return agendamento_service.calendario(db, inicio, fim)
 
 
-@router.post("/", response_model=AgendaRead, status_code=status.HTTP_201_CREATED)
-def definir_capacidade(
-    dados: AgendaCreate,
+@router.put("/{data}", response_model=DiaAgendaRead)
+def ajustar_dia(
+    data: date,
+    dados: AgendaDiaUpdate,
     db: Session = Depends(get_db),
     _=Depends(get_admin_atual),
 ):
-    """Cadastra ou sobrescreve a capacidade de uma data específica."""
-    return agendamento_service.definir(db, dados)
-
-
-@router.put("/{agenda_id}", response_model=AgendaRead)
-def atualizar_agenda(
-    agenda_id: int,
-    dados: AgendaUpdate,
-    db: Session = Depends(get_db),
-    _=Depends(get_admin_atual),
-):
-    return agendamento_service.atualizar(db, agenda_id, dados)
+    """Ajusta capacidade e/ou bloqueio do dia. Enviar nulo volta a seguir a configuração."""
+    return agendamento_service.ajustar_dia(db, data, dados)
