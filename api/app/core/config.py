@@ -11,7 +11,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    # Sessão (BG-17): renovada enquanto a pessoa usa o sistema; cai depois desse tempo parada.
+    # Cliente: curta, cobre a compra. Admin: longa, a dona usa o painel no próprio celular o dia todo
+    SESSAO_CLIENTE_HORAS: int = 3
+    SESSAO_ADMIN_DIAS: int = 30
     MERCADOPAGO_ACCESS_TOKEN: str = ""
     # Secret gerado no painel do Mercado Pago ao configurar o webhook (valida o x-signature)
     MERCADOPAGO_WEBHOOK_SECRET: str = ""

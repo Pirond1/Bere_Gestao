@@ -3,6 +3,7 @@ from typing import Annotated, Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
+from app.core.tempo import hoje
 from app.schemas.cliente import ClienteRead, _validar_cpf, _validar_telefone
 from app.services import senha_service
 
@@ -11,7 +12,7 @@ Codigo = Annotated[str, Field(pattern=r"^\d{6}$")]
 
 
 def _validar_nascimento(data: Optional[date]) -> Optional[date]:
-    if data is not None and data > date.today():
+    if data is not None and data > hoje():
         raise ValueError("A data de nascimento não pode ser no futuro")
     return data
 
@@ -151,5 +152,7 @@ class AlterarContaInput(BaseModel):
 class AlterarContaRead(BaseModel):
     email: str
     cliente: Optional[ClienteRead] = None
+    # Só quando a senha muda: as sessões antigas caem e esta continua com o token novo
+    access_token: Optional[str] = None
 
     model_config = {"from_attributes": True}

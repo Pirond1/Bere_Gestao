@@ -2,7 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_cliente_atual, get_usuario_atual
-from app.core.security import criar_token
+from app.core.security import token_do_usuario
 from app.db.session import get_db
 from app.models.cliente import ClienteModel
 from app.models.usuario import UsuarioModel
@@ -64,8 +64,13 @@ def redefinir_senha(dados: RedefinirSenhaInput, db: Session = Depends(get_db)):
 @router.post("/login", response_model=TokenResponse)
 def login(dados: LoginInput, db: Session = Depends(get_db)):
     usuario = usuario_service.autenticar(db, dados.email, dados.senha)
-    token = criar_token({"sub": str(usuario.id), "tipo": usuario.tipoUsuario.descricao})
-    return TokenResponse(access_token=token)
+    return TokenResponse(access_token=token_do_usuario(usuario))
+
+
+@router.post("/renovar", response_model=TokenResponse)
+def renovar_sessao(usuario_atual: UsuarioModel = Depends(get_usuario_atual)):
+    """Token novo para quem está usando o sistema — a sessão só cai depois de um tempo parada."""
+    return TokenResponse(access_token=token_do_usuario(usuario_atual))
 
 
 @router.get("/me", response_model=MeRead)
@@ -119,4 +124,7 @@ def alterar_conta(
     usuario_atual: UsuarioModel = Depends(get_usuario_atual),
 ):
     """Altera dados da conta. Senha e CPF exigem `senha_atual`; o e-mail muda por /auth/email/..."""
-    return auth_service.alterar_conta(db, usuario_atual, dados)
+    usuario, novo_token = auth_service.alterar_conta(db, usuario_atual, dados)
+    resposta = AlterarContaRead.model_validate(usuario)
+    resposta.access_token = novo_token
+    return resposta
