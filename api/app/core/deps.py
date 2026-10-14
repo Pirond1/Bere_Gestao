@@ -1,3 +1,4 @@
+from datetime import timezone
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
@@ -12,6 +13,18 @@ from app.models.usuario import UsuarioModel
 
 http_bearer = HTTPBearer()
 http_bearer_opcional = HTTPBearer(auto_error=False)
+
+
+def _sessao_valida(usuario: Optional[UsuarioModel], payload: dict) -> bool:
+    """Conta ativa e token emitido depois da última troca de senha (derruba as outras sessões)."""
+    if usuario is None or not usuario.ativo:
+        return False
+    if usuario.senha_alterada_em is not None:
+        emitido_em = payload.get("iat")
+        trocada_em = int(usuario.senha_alterada_em.replace(tzinfo=timezone.utc).timestamp())
+        if emitido_em is None or emitido_em < trocada_em:
+            return False
+    return True
 
 
 def get_usuario_atual(
@@ -33,7 +46,7 @@ def get_usuario_atual(
         raise erro_credencial
 
     usuario = db.query(UsuarioModel).filter(UsuarioModel.id == int(usuario_id)).first()
-    if usuario is None or not usuario.ativo:
+    if not _sessao_valida(usuario, payload):
         raise erro_credencial
     return usuario
 
@@ -50,9 +63,7 @@ def get_usuario_opcional(
         if usuario_id is None:
             return None
         usuario = db.query(UsuarioModel).filter(UsuarioModel.id == int(usuario_id)).first()
-        if usuario is None or not usuario.ativo:
-            return None
-        return usuario
+        return usuario if _sessao_valida(usuario, payload) else None
     except JWTError:
         return None
 

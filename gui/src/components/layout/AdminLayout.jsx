@@ -1,4 +1,4 @@
-import { CakeSlice, CalendarDays, ClipboardList, Home, LayoutDashboard, LogOut, Menu, Settings, Star, X } from 'lucide-react'
+import { CakeSlice, CalendarDays, ClipboardList, Home, LayoutDashboard, LogOut, Menu, Settings, Star, Users, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 
@@ -7,13 +7,13 @@ import { useNewOrdersCount } from '../../hooks/useNewOrdersCount'
 import { cn } from '../../utils/cn'
 import { BrandIcon } from '../ui/Logo'
 
-// Novos módulos do painel (Clientes) entram aqui nas próximas tarefas
 const adminNav = [
   { to: '/admin', label: 'Visão geral', icon: LayoutDashboard, end: true },
   // badge: o indicador de pedidos novos aparece neste item
   { to: '/admin/pedidos', label: 'Pedidos', icon: ClipboardList, badge: true },
   { to: '/admin/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/admin/produtos', label: 'Produtos', icon: CakeSlice },
+  { to: '/admin/clientes', label: 'Clientes', icon: Users },
   { to: '/admin/nps', label: 'Avaliações (NPS)', icon: Star },
   { to: '/admin/configuracoes', label: 'Configurações', icon: Settings },
 ]

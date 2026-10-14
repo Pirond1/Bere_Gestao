@@ -4,7 +4,8 @@ from typing import Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.security import criar_token, hash_senha, verificar_senha
+from app.core.tempo import hoje
+from app.core.security import criar_token, hash_senha, token_do_usuario, verificar_senha
 from app.models.cliente import ClienteModel
 from app.models.codigo_verificacao import CodigoVerificacaoModel
 from app.models.usuario import UsuarioModel
@@ -102,7 +103,7 @@ def confirmar_cadastro(db: Session, email: str, codigo: str) -> dict:
         cpf=dados["cpf"],
         telefone=dados.get("telefone"),
         data_nascimento=date.fromisoformat(dados["data_nascimento"]) if dados.get("data_nascimento") else None,
-        data_assinatura=date.today(),
+        data_assinatura=hoje(),
         usuario_id=usuario.id,
     )
     db.add(cliente)
@@ -146,6 +147,13 @@ def solicitar_recuperacao(db: Session, email: str) -> Optional[tuple]:
     return usuario.email, mensagem, email_service.remetente(db)
 
 
+def _trocar_senha(usuario: UsuarioModel, nova_senha: str) -> None:
+    """Grava a senha nova e derruba as sessões abertas em outros aparelhos."""
+    usuario.senha_hash = hash_senha(nova_senha)
+    # Sem microssegundos: o `iat` do token é em segundos, e o token novo (mesmo segundo) precisa valer
+    usuario.senha_alterada_em = codigo_service.agora().replace(microsecond=0)
+
+
 def redefinir_senha(db: Session, email: str, codigo: str, nova_senha: str) -> None:
     usuario = db.query(UsuarioModel).filter(UsuarioModel.email == email).first()
     if not usuario or not usuario.ativo:
@@ -153,7 +161,7 @@ def redefinir_senha(db: Session, email: str, codigo: str, nova_senha: str) -> No
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Código expirado — peça um novo código")
     _validar_forca(nova_senha, usuario)
     codigo_service.verificar(db, codigo_service.RECUPERACAO_SENHA, usuario.email, codigo)
-    usuario.senha_hash = hash_senha(nova_senha)
+    _trocar_senha(usuario, nova_senha)
     db.commit()
 
 
@@ -249,7 +257,10 @@ def _validar_forca(senha: str, usuario: UsuarioModel, cpf: Optional[str] = None)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=erro)
 
 
-def alterar_conta(db: Session, usuario_atual: UsuarioModel, dados: AlterarContaInput) -> UsuarioModel:
+def alterar_conta(
+    db: Session, usuario_atual: UsuarioModel, dados: AlterarContaInput
+) -> tuple[UsuarioModel, Optional[str]]:
+    """Devolve a conta e, se a senha mudou, um token novo — o atual cai junto com as outras sessões."""
     campos = dados.model_dump(exclude_unset=True)
     # Nulo em senha/nome/CPF significa "não mudar"; no telefone e no nascimento, apaga
     for campo in ("senha", "nome", "cpf", "senha_atual"):
@@ -275,7 +286,7 @@ def alterar_conta(db: Session, usuario_atual: UsuarioModel, dados: AlterarContaI
 
     if "senha" in campos:
         _validar_forca(campos["senha"], usuario_atual)
-        usuario_atual.senha_hash = hash_senha(campos["senha"])
+        _trocar_senha(usuario_atual, campos["senha"])
 
     # atualiza o perfil de cliente se existir
     campos_cliente = {k: campos[k] for k in ("nome", "telefone", "data_nascimento") if k in campos}
@@ -285,4 +296,4 @@ def alterar_conta(db: Session, usuario_atual: UsuarioModel, dados: AlterarContaI
 
     db.commit()
     db.refresh(usuario_atual)
-    return usuario_atual
+    return usuario_atual, token_do_usuario(usuario_atual) if "senha" in campos else None

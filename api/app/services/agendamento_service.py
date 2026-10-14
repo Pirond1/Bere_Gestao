@@ -5,6 +5,7 @@ from typing import Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.tempo import hoje
 from app.models.agenda import AgendaModel
 from app.models.configuracao import ConfiguracaoModel
 from app.schemas.agenda import AgendaDiaUpdate, DiaAgendaRead, DiaDisponivelRead
@@ -71,7 +72,7 @@ def obter_ou_criar(db: Session, data: date, travar: bool = False) -> AgendaModel
 def validar_antecedencia(db: Session, data: date) -> None:
     """A retirada precisa respeitar a antecedência mínima definida na configuração."""
     configuracao = configuracao_service.obter(db)
-    data_minima = date.today() + timedelta(days=configuracao.antecedencia_minima_dias)
+    data_minima = hoje() + timedelta(days=configuracao.antecedencia_minima_dias)
     if data < data_minima:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -123,7 +124,7 @@ def _agendas_do_periodo(db: Session, inicio: date, fim: date) -> dict[date, Agen
 def listar_disponibilidade(db: Session, dias: int = 30) -> list[DiaDisponivelRead]:
     """Monta o calendário que o cliente vê ao escolher a data de retirada."""
     configuracao = configuracao_service.obter(db)
-    inicio = date.today() + timedelta(days=configuracao.antecedencia_minima_dias)
+    inicio = hoje() + timedelta(days=configuracao.antecedencia_minima_dias)
     fim = inicio + timedelta(days=dias - 1)
     cadastradas = _agendas_do_periodo(db, inicio, fim)
 
@@ -153,7 +154,7 @@ def _dia_agenda(agenda: Optional[AgendaModel], data: date, configuracao: Configu
         bloqueio_dia=agenda.bloqueada if agenda else None,
         fechado_na_semana=dia.fechado_na_semana,
         vagas_disponiveis=dia.vagas,
-        passado=data < date.today(),
+        passado=data < hoje(),
     )
 
 
@@ -182,7 +183,7 @@ def ajustar_dia(db: Session, data: date, dados: AgendaDiaUpdate) -> DiaAgendaRea
 
     Bloquear um dia com pedidos é permitido: só impede novos pedidos, os existentes continuam.
     """
-    if data < date.today():
+    if data < hoje():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Não é possível alterar um dia que já passou",

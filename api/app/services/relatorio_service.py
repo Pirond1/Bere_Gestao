@@ -1,12 +1,13 @@
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
-from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from app.core.tempo import FUSO_LOJA
+from app.core.tempo import hoje as hoje_na_loja
 from app.models.agenda import AgendaModel
 from app.models.avaliacao import AvaliacaoModel
 from app.models.item_pedido import ItemPedidoModel
@@ -23,7 +24,6 @@ from app.services import (
 )
 
 # O banco grava em UTC, mas a dona enxerga o dia no horário de Brasília
-FUSO_LOJA = ZoneInfo("America/Sao_Paulo")
 
 # Acima disso o gráfico de faturamento passa a agrupar por mês
 MAX_DIAS_AGRUPADO_POR_DIA = 62
@@ -67,7 +67,7 @@ def _data_local(momento: datetime) -> date:
     return momento.replace(tzinfo=timezone.utc).astimezone(FUSO_LOJA).date()
 
 
-def _foi_pago():
+def foi_pago():
     """Pedido com pagamento aprovado — estornados e cancelados não contam como venda."""
     return PedidoModel.pagamentos.any(
         PagamentoModel.status.has(StatusPagamentoModel.descricao == status_pagamento_service.APROVADO)
@@ -84,7 +84,7 @@ def _total_pago(db: Session, inicio: date, fim: date) -> Decimal:
     de, ate = _intervalo_utc(inicio, fim)
     total = (
         db.query(func.sum(PedidoModel.valor_total))
-        .filter(_foi_pago(), PedidoModel.data_pedido >= de, PedidoModel.data_pedido < ate)
+        .filter(foi_pago(), PedidoModel.data_pedido >= de, PedidoModel.data_pedido < ate)
         .scalar()
     )
     return total or Decimal("0")
@@ -127,7 +127,7 @@ def vendas(db: Session, inicio: date, fim: date) -> dict:
 
     pedidos = (
         db.query(PedidoModel)
-        .filter(_foi_pago(), PedidoModel.data_pedido >= de, PedidoModel.data_pedido < ate)
+        .filter(foi_pago(), PedidoModel.data_pedido >= de, PedidoModel.data_pedido < ate)
         .options(
             selectinload(PedidoModel.itens)
             .joinedload(ItemPedidoModel.produto)
@@ -220,7 +220,7 @@ def vendas(db: Session, inicio: date, fim: date) -> dict:
 
 def proximas_retiradas(db: Session, dias: int = DIAS_PROXIMAS_RETIRADAS) -> list[dict]:
     """Carga de produção dos próximos dias: pedidos pagos e ocupação da capacidade."""
-    hoje = datetime.now(FUSO_LOJA).date()
+    hoje = hoje_na_loja()
     fim = hoje + timedelta(days=dias - 1)
 
     configuracao = configuracao_service.obter(db)
@@ -234,7 +234,7 @@ def proximas_retiradas(db: Session, dias: int = DIAS_PROXIMAS_RETIRADAS) -> list
         db.query(PedidoModel)
         .join(AgendaModel, PedidoModel.agenda_id == AgendaModel.id)
         .filter(
-            _foi_pago(),
+            foi_pago(),
             AgendaModel.data.between(hoje, fim),
             PedidoModel.status.has(StatusPedidoModel.descricao.in_(STATUS_A_PRODUZIR)),
         )
@@ -377,7 +377,7 @@ def _taxa_resposta(db: Session, inicio: date, fim: date) -> tuple[int, int]:
 def _evolucao_mensal(db: Session, fim: date) -> list[dict]:
     """NPS mês a mês nos últimos meses até o fim do período — mostra a tendência."""
     # Meses futuros só apareceriam vazios
-    fim = min(fim, datetime.now(FUSO_LOJA).date())
+    fim = min(fim, hoje_na_loja())
     ultimo_mes = fim.replace(day=1)
     primeiro_mes = ultimo_mes
     for _ in range(MESES_EVOLUCAO - 1):
@@ -428,7 +428,7 @@ def _primeiras_compras(db: Session) -> dict[int, datetime]:
     """Data do primeiro pedido pago de cada cliente — define quem é novo e quem é recorrente."""
     linhas = (
         db.query(PedidoModel.cliente_id, func.min(PedidoModel.data_pedido))
-        .filter(_foi_pago())
+        .filter(foi_pago())
         .group_by(PedidoModel.cliente_id)
         .all()
     )
@@ -448,7 +448,7 @@ def _clientes_por_tipo(
     clientes = {
         cliente_id
         for (cliente_id,) in db.query(PedidoModel.cliente_id)
-        .filter(_foi_pago(), PedidoModel.data_pedido >= de, PedidoModel.data_pedido < ate)
+        .filter(foi_pago(), PedidoModel.data_pedido >= de, PedidoModel.data_pedido < ate)
         .distinct()
     }
     novos = sum(1 for cliente_id in clientes if primeiras[cliente_id] >= de)

@@ -72,6 +72,14 @@ export const router = createBrowserRouter([
             lazy: () => import('../pages/admin/ProdutoForm').then((m) => ({ Component: m.ProdutoForm })),
           },
           {
+            path: 'clientes',
+            lazy: () => import('../pages/admin/Clientes').then((m) => ({ Component: m.Clientes })),
+          },
+          {
+            path: 'clientes/:id',
+            lazy: () => import('../pages/admin/ClienteAdmin').then((m) => ({ Component: m.ClienteAdmin })),
+          },
+          {
             path: 'agenda',
             lazy: () => import('../pages/admin/Agenda').then((m) => ({ Component: m.Agenda })),
           },
