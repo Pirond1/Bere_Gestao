@@ -5,6 +5,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '../../hooks/useAuth'
 import { useCarrinho } from '../../hooks/useCarrinho'
 import { cn } from '../../utils/cn'
+import { PwaPrompts } from '../PwaPrompts'
 import { Button } from '../ui/Button'
 import { LogoHorizontal } from '../ui/Logo'
 
@@ -158,6 +159,7 @@ export function ClientLayout() {
           <p className="mt-1 text-xs text-vanilla/60">Feito à mão, com carinho, para você</p>
         </div>
       </footer>
+      <PwaPrompts />
     </div>
   )
 }
