@@ -148,6 +148,9 @@ docker-compose down
 
 # Reset total do banco (cuidado!)
 docker-compose down -v
+
+# Testes automatizados (SQLite em memória — não toca no banco real)
+docker exec bere_api pytest
 ```
 
 - **API:** http://localhost:8000
