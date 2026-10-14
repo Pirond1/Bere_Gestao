@@ -1,0 +1,122 @@
+#  Produção (BG-24) — VPS com Docker
+#
+#  Subir/atualizar:  docker compose -f docker-compose.prod.yml up -d --build
+#  Logs:             docker compose -f docker-compose.prod.yml logs -f api
+#
+#  Diferenças para o docker-compose.yml de desenvolvimento:
+#  - Caddy (serviço web) serve o front já compilado e faz o HTTPS automático (Let's Encrypt)
+#    em https://DOMINIO e https://api.DOMINIO — só ele fica exposto na internet
+#  - MySQL e API sem portas abertas: só são alcançados por dentro da rede do Docker
+#  - API com o código dentro da imagem (sem --reload) e migrations aplicadas ao subir
+#  - Sem Mailpit: e-mail sai pelo SMTP de verdade (Brevo)
+
+services:
+
+  #  Banco de dados — MySQL 8
+  db:
+    image: mysql:8.0
+    container_name: bere_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Defina MYSQL_ROOT_PASSWORD no .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?Defina MYSQL_DATABASE no .env}
+      MYSQL_USER: ${MYSQL_USER:?Defina MYSQL_USER no .env}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Defina MYSQL_PASSWORD no .env}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  #  API — FastAPI + Python 3.12
+  api:
+    build:
+      context: ./api
+    container_name: bere_api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
+      SECRET_KEY: ${SECRET_KEY:?Defina SECRET_KEY no .env}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      SESSAO_CLIENTE_HORAS: ${SESSAO_CLIENTE_HORAS:-3}
+      SESSAO_ADMIN_DIAS: ${SESSAO_ADMIN_DIAS:-30}
+      MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN:?Defina MERCADOPAGO_ACCESS_TOKEN no .env}
+      # Sem o secret o webhook recusa todas as notificações (x-signature inválido)
+      MERCADOPAGO_WEBHOOK_SECRET: ${MERCADOPAGO_WEBHOOK_SECRET:?Defina MERCADOPAGO_WEBHOOK_SECRET no .env}
+      MERCADOPAGO_SANDBOX: ${MERCADOPAGO_SANDBOX:-false}
+      SMTP_HOST: ${SMTP_HOST:?Defina SMTP_HOST no .env}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:?Defina SMTP_USER no .env}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?Defina SMTP_PASSWORD no .env}
+      SMTP_SEGURANCA: ${SMTP_SEGURANCA:-starttls}
+      SMTP_REMETENTE: ${SMTP_REMETENTE:?Defina SMTP_REMETENTE no .env}
+      CORS_ORIGINS: https://${DOMINIO}
+    volumes:
+      # Fotos dos produtos (BG-13) — fora da imagem, sobrevivem a rebuilds; o backup lê a mesma pasta
+      - ./api/app/uploads:/app/app/uploads
+      - ./backups:/backups:ro
+    # Um processo só: a expiração de PIX roda dentro da API e duplicaria com vários workers.
+    # --proxy-headers: atrás do Caddy, redirects saem com https:// e não http://
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips '*'"
+
+  #  Web — Caddy: front compilado + proxy da API + HTTPS automático
+  web:
+    build:
+      context: ./gui
+      args:
+        # Variáveis do Vite entram no build (ficam no JS do navegador) — só o que pode ser público
+        VITE_API_URL: https://api.${DOMINIO}
+        VITE_MP_PUBLIC_KEY: ${MERCADOPAGO_PUBLIC_KEY:?Defina MERCADOPAGO_PUBLIC_KEY no .env}
+    container_name: bere_web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      DOMINIO: ${DOMINIO:?Defina DOMINIO no .env}
+      # Avisos do Let's Encrypt (certificado perto de vencer sem renovar)
+      ACME_EMAIL: ${ACME_EMAIL:?Defina ACME_EMAIL no .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      # Certificados — sem volume, cada recriação pede certificado novo e esbarra no limite do Let's Encrypt
+      - caddy_data:/data
+      - caddy_config:/config
+
+  #  Backup — igual ao de desenvolvimento (BG-23)
+  backup:
+    build:
+      context: ./backup
+    container_name: bere_backup
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: America/Sao_Paulo
+      BACKUP_HORARIO: ${BACKUP_HORARIO:-03:00}
+      BACKUP_DIAS: ${BACKUP_DIAS:-7}
+      BACKUP_SEMANAS: ${BACKUP_SEMANAS:-4}
+      BACKUP_REMOTO: ${BACKUP_REMOTO:-}
+      RCLONE_CONFIG: /config/rclone/rclone.conf
+    volumes:
+      - ./backups:/backups
+      - ./api/app/uploads:/dados/uploads
+      - ./backup/config:/config/rclone
+
+volumes:
+  mysql_data:
+  caddy_data:
+  caddy_config:
