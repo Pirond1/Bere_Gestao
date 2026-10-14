@@ -3,6 +3,8 @@ import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
+import { CodeInput, ResendCode } from '../../components/CodeInput'
+import { PasswordStrength } from '../../components/PasswordStrength'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -10,12 +12,20 @@ import { Field } from '../../components/ui/Field'
 import { PasswordField } from '../../components/ui/PasswordField'
 import { useAsync } from '../../hooks/useAsync'
 import { useAuth } from '../../hooks/useAuth'
-import { getProfile, lookupCep, saveAddress, updateAccount } from '../../services/profileService'
+import {
+  confirmEmailChange,
+  getProfile,
+  lookupCep,
+  requestEmailChange,
+  saveAddress,
+  updateAccount,
+} from '../../services/profileService'
 import { cn } from '../../utils/cn'
 import { toDateKey } from '../../utils/date'
 import { getErrorMessage } from '../../utils/errors'
 import { maskCep, maskCpf, maskPhone, onlyDigits } from '../../utils/format'
-import { MIN_PASSWORD, isValidCpf, isValidEmail, isValidPhone } from '../../utils/validators'
+import { passwordIssue } from '../../utils/password'
+import { isValidCpf, isValidEmail, isValidPhone } from '../../utils/validators'
 
 const UFS = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA',
@@ -266,17 +276,19 @@ function Address({ endereco, onSaved }) {
 }
 
 /** Campos de um dado protegido + senha atual. Só um destes fica aberto por vez. */
-function ProtectedForm({ submitLabel, successMessage, validate, payload, onDone, children }) {
+function ProtectedForm({ submitLabel, successMessage, validate, payload, onDone, action = updateAccount, children }) {
   const [senhaAtual, setSenhaAtual] = useState('')
   const [senhaErro, setSenhaErro] = useState('')
-  const { saving, error, submit } = useSubmit(updateAccount, successMessage)
+  const { saving, error, submit } = useSubmit(action, successMessage)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     const valid = validate()
     setSenhaErro(senhaAtual ? '' : 'Informe sua senha atual')
     if (!valid || !senhaAtual) return
-    if (await submit({ ...payload(), senha_atual: senhaAtual })) onDone()
+    const dados = { ...payload(), senha_atual: senhaAtual }
+    const resultado = await submit(dados)
+    if (resultado) onDone(resultado, dados)
   }
 
   return (
@@ -298,9 +310,12 @@ function ProtectedForm({ submitLabel, successMessage, validate, payload, onDone,
   )
 }
 
+/** 1º a senha atual e o novo e-mail; 2º o código que chegou no novo e-mail. */
 function EmailForm({ email, onDone }) {
   const [novo, setNovo] = useState('')
   const [erro, setErro] = useState('')
+  // Código enviado: guarda o pedido para o "reenviar" (a senha fica só na memória desta tela)
+  const [pending, setPending] = useState(null)
 
   const validate = () => {
     const valor = novo.trim()
@@ -313,13 +328,16 @@ function EmailForm({ email, onDone }) {
     return !found
   }
 
+  if (pending) return <ConfirmNewEmail pending={pending} onDone={onDone} onBack={() => setPending(null)} />
+
   return (
     <ProtectedForm
-      submitLabel="Salvar e-mail"
-      successMessage="E-mail alterado"
+      submitLabel="Enviar código"
+      successMessage="Enviamos um código para o novo e-mail"
       validate={validate}
       payload={() => ({ email: novo.trim() })}
-      onDone={onDone}
+      action={(dados) => requestEmailChange(dados.email, dados.senha_atual)}
+      onDone={(enviado, dados) => setPending({ ...enviado, senhaAtual: dados.senha_atual })}
     >
       <Field
         label="Novo e-mail"
@@ -329,8 +347,54 @@ function EmailForm({ email, onDone }) {
         value={novo}
         onChange={(e) => setNovo(e.target.value)}
         error={erro}
+        hint="Vamos enviar um código para confirmar que o endereço é seu."
       />
     </ProtectedForm>
+  )
+}
+
+function ConfirmNewEmail({ pending, onDone, onBack }) {
+  const [codigo, setCodigo] = useState('')
+  const { saving, error, submit } = useSubmit(confirmEmailChange, 'E-mail alterado')
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (await submit(codigo)) onDone()
+  }
+
+  const handleResend = async () => {
+    try {
+      const enviado = await requestEmailChange(pending.email, pending.senhaAtual)
+      toast.success('Enviamos um novo código')
+      setCodigo('')
+      return enviado.reenvio_em_segundos
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+      return null
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} noValidate className="space-y-4">
+      <p className="text-sm">
+        Digite o código enviado para <strong className="break-all">{pending.email}</strong>. Seu e-mail só muda depois
+        disso.
+      </p>
+      <CodeInput value={codigo} onChange={setCodigo} error={error} id="codigo-email" />
+      <Button type="submit" loading={saving} disabled={codigo.length !== 6}>
+        Confirmar novo e-mail
+      </Button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <ResendCode seconds={pending.reenvio_em_segundos} onResend={handleResend} />
+        <button
+          type="button"
+          onClick={onBack}
+          className="cursor-pointer text-sm text-muted-foreground underline-offset-4 hover:underline"
+        >
+          Usar outro e-mail
+        </button>
+      </div>
+    </form>
   )
 }
 
@@ -364,14 +428,16 @@ function CpfForm({ cpf, onDone }) {
   )
 }
 
-function PasswordForm({ onDone }) {
+function PasswordForm({ perfil, onDone }) {
   const [form, setForm] = useState({ nova: '', confirmar: '' })
   const [errors, setErrors] = useState({})
   const update = (campo) => (e) => setForm((f) => ({ ...f, [campo]: e.target.value }))
+  const pessoa = { nome: perfil.cliente?.nome, email: perfil.email, cpf: perfil.cliente?.cpf }
 
   const validate = () => {
     const found = {}
-    if (form.nova.length < MIN_PASSWORD) found.nova = `A nova senha precisa ter pelo menos ${MIN_PASSWORD} caracteres`
+    const issue = passwordIssue(form.nova, pessoa)
+    if (issue) found.nova = issue
     if (form.confirmar !== form.nova) found.confirmar = 'As senhas não coincidem'
     setErrors(found)
     return !Object.keys(found).length
@@ -392,8 +458,10 @@ function PasswordForm({ onDone }) {
         value={form.nova}
         onChange={update('nova')}
         error={errors.nova}
-        hint={`Pelo menos ${MIN_PASSWORD} caracteres.`}
       />
+      <div className="-mt-2">
+        <PasswordStrength senha={form.nova} pessoa={pessoa} />
+      </div>
       <PasswordField
         label="Confirmar nova senha"
         autoComplete="new-password"
@@ -444,7 +512,7 @@ function Access({ perfil, onSaved }) {
           <CpfForm cpf={perfil.cliente.cpf} onDone={done} />
         </AccessRow>
         <AccessRow label="Senha" value="••••••••" open={open === 'senha'} onToggle={toggle('senha')}>
-          <PasswordForm onDone={done} />
+          <PasswordForm perfil={perfil} onDone={done} />
         </AccessRow>
       </ul>
     </Section>

@@ -13,3 +13,4 @@ from app.models.avaliacao import AvaliacaoModel
 from app.models.metodo_pagamento import MetodoPagamentoModel
 from app.models.status_pagamento import StatusPagamentoModel
 from app.models.pagamento import PagamentoModel
+from app.models.codigo_verificacao import CodigoVerificacaoModel

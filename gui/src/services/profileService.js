@@ -26,3 +26,14 @@ export async function lookupCep(cep) {
   const { data } = await api.get(`/enderecos/cep/${cep}`)
   return data
 }
+
+/** Confere a senha atual e envia um código para o novo e-mail. A troca só acontece ao confirmar. */
+export async function requestEmailChange(novoEmail, senhaAtual) {
+  const { data } = await api.post('/auth/email/solicitar', { novo_email: novoEmail, senha_atual: senhaAtual })
+  return data
+}
+
+export async function confirmEmailChange(codigo) {
+  const { data } = await api.post('/auth/email/confirmar', { codigo })
+  return data
+}

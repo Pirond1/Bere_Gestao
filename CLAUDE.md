@@ -153,6 +153,7 @@ docker-compose down -v
 - **API:** http://localhost:8000
 - **Docs Swagger:** http://localhost:8000/docs
 - **MySQL:** localhost:3306 (user: `bere_user`, db: `bere_gestao`)
+- **Mailpit (e-mails de desenvolvimento):** http://localhost:8025 — recebe todos os e-mails enviados pela API (códigos de cadastro, recuperação de senha). Em produção, configurar `SMTP_*` no `.env`.
 
 ---
 

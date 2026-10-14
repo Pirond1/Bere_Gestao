@@ -30,9 +30,12 @@ export function AuthProvider({ children }) {
     [saveToken],
   )
 
-  const register = useCallback(
-    async (dados) => {
-      const newToken = await authService.register(dados)
+  // Cadastro em duas etapas (BG-15): os dados enviam o código; o código cria a conta e entra
+  const register = useCallback((dados) => authService.register(dados), [])
+
+  const confirmRegistration = useCallback(
+    async (email, codigo) => {
+      const newToken = await authService.confirmRegistration(email, codigo)
       saveToken(newToken)
       return decodeToken(newToken)
     },
@@ -68,9 +71,10 @@ export function AuthProvider({ children }) {
       isAdmin: user?.tipo === 'admin',
       login,
       register,
+      confirmRegistration,
       logout,
     }),
-    [user, login, register, logout],
+    [user, login, register, confirmRegistration, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

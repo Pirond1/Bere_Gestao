@@ -26,3 +26,8 @@ export function getPublicSettings() {
     })
   return publicSettings
 }
+/** E-mail de teste para o próprio admin (confere SMTP, remetente e e-mail de resposta). */
+export async function sendTestEmail() {
+  const { data } = await api.post('/configuracoes/email-teste')
+  return data.mensagem
+}

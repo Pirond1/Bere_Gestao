@@ -1,17 +1,13 @@
-from datetime import date
-from typing import Optional
+from datetime import date, datetime
+from typing import Annotated, Optional
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 from app.schemas.cliente import ClienteRead, _validar_cpf, _validar_telefone
+from app.services import senha_service
 
-SENHA_MINIMA = 8
-
-
-def _validar_senha(senha: str) -> str:
-    if len(senha) < SENHA_MINIMA:
-        raise ValueError(f"A senha precisa ter pelo menos {SENHA_MINIMA} caracteres")
-    return senha
+# Código de 6 dígitos enviado por e-mail (BG-15)
+Codigo = Annotated[str, Field(pattern=r"^\d{6}$")]
 
 
 def _validar_nascimento(data: Optional[date]) -> Optional[date]:
@@ -42,17 +38,28 @@ class MeRead(BaseModel):
     nome: Optional[str] = None
 
 
+class MensagemRead(BaseModel):
+    mensagem: str
+
+
+class CodigoEnviadoRead(BaseModel):
+    """O código foi enviado — a tela pede os 6 dígitos e controla o "reenviar"."""
+
+    email: str
+    expira_em: datetime
+    reenvio_em_segundos: int
+
+
 class RegistroInput(BaseModel):
     # campos de Usuario
     email: EmailStr
     senha: str
     # campos de Cliente
-    nome: str
+    nome: str = Field(max_length=100)
     cpf: str
     telefone: Optional[str] = None
     data_nascimento: Optional[date] = None
 
-    senha_valida = field_validator("senha")(_validar_senha)
     nome_valido = field_validator("nome")(_validar_nome)
     nascimento_valido = field_validator("data_nascimento")(_validar_nascimento)
 
@@ -68,6 +75,23 @@ class RegistroInput(BaseModel):
             return _validar_telefone(v)
         return v
 
+    @model_validator(mode="after")
+    def senha_forte(self):
+        # Depois dos campos: a força depende do nome, e-mail e CPF
+        erro = senha_service.problema(self.senha, self.nome, self.email, self.cpf)
+        if erro:
+            raise ValueError(erro)
+        return self
+
+
+class ConfirmarCadastroInput(BaseModel):
+    email: EmailStr
+    codigo: Codigo
+
+
+class ReenviarCodigoInput(BaseModel):
+    email: EmailStr
+
 
 class RegistroRead(BaseModel):
     access_token: str
@@ -75,11 +99,26 @@ class RegistroRead(BaseModel):
     cliente: ClienteRead
 
 
+class RedefinirSenhaInput(BaseModel):
+    email: EmailStr
+    codigo: Codigo
+    nova_senha: str
+
+
+class SolicitarTrocaEmailInput(BaseModel):
+    novo_email: EmailStr
+    senha_atual: str
+
+
+class ConfirmarCodigoInput(BaseModel):
+    codigo: Codigo
+
+
 class AlterarContaInput(BaseModel):
-    # campos de Usuario
-    email: Optional[EmailStr] = None
+    """O e-mail não muda aqui: a troca confirma o novo endereço por código (/auth/email/...)."""
+
     senha: Optional[str] = None
-    # Obrigatória para trocar e-mail, senha ou CPF — sessão aberta sozinha não basta para tomar a conta
+    # Obrigatória para trocar senha ou CPF — sessão aberta sozinha não basta para tomar a conta
     senha_atual: Optional[str] = None
     # campos de Cliente (ignorados se o usuário for admin)
     nome: Optional[str] = Field(default=None, max_length=100)
@@ -87,11 +126,6 @@ class AlterarContaInput(BaseModel):
     cpf: Optional[str] = None
     telefone: Optional[str] = None
     data_nascimento: Optional[date] = None
-
-    @field_validator("senha")
-    @classmethod
-    def senha_valida(cls, v: Optional[str]) -> Optional[str]:
-        return _validar_senha(v) if v is not None else None
 
     @field_validator("nome")
     @classmethod
