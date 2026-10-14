@@ -1,18 +1,22 @@
-import { ShieldCheck } from 'lucide-react'
+import { MailCheck, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
+import { CodeInput, ResendCode } from '../../components/CodeInput'
 import { AuthCard } from '../../components/layout/AuthCard'
+import { PasswordStrength } from '../../components/PasswordStrength'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { Field } from '../../components/ui/Field'
 import { PasswordField } from '../../components/ui/PasswordField'
 import { useAuth } from '../../hooks/useAuth'
+import { resendRegistrationCode } from '../../services/authService'
 import { getErrorMessage } from '../../utils/errors'
 import { maskCpf, maskPhone, onlyDigits } from '../../utils/format'
+import { passwordIssue } from '../../utils/password'
 import { redirectAfterAuth } from '../../utils/redirect'
-import { MIN_PASSWORD, isValidCpf, isValidEmail, isValidPhone } from '../../utils/validators'
+import { isValidCpf, isValidEmail, isValidPhone } from '../../utils/validators'
 
 const initialForm = {
   nome: '',
@@ -24,6 +28,76 @@ const initialForm = {
   confirmarSenha: '',
 }
 
+const personOf = (form) => ({ nome: form.nome, email: form.email, cpf: form.cpf })
+
+/** 2ª etapa: o código que chegou no e-mail cria a conta. */
+function ConfirmEmail({ pending, onBack, from }) {
+  const { confirmRegistration } = useAuth()
+  const navigate = useNavigate()
+  const [codigo, setCodigo] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    if (codigo.length !== 6) {
+      setError('Digite os 6 dígitos do código')
+      return
+    }
+    setError('')
+    setLoading(true)
+    try {
+      const user = await confirmRegistration(pending.email, codigo)
+      toast.success('Conta criada!', { description: 'Agora é só escolher seus doces.' })
+      navigate(redirectAfterAuth(user, from), { replace: true })
+    } catch (err) {
+      setError(getErrorMessage(err))
+      setLoading(false)
+    }
+  }
+
+  const handleResend = async () => {
+    try {
+      const enviado = await resendRegistrationCode(pending.email)
+      toast.success('Enviamos um novo código')
+      setCodigo('')
+      setError('')
+      return enviado.reenvio_em_segundos
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+      return null
+    }
+  }
+
+  return (
+    <AuthCard title="Confirme seu e-mail" subtitle="Falta só um passo para criar sua conta">
+      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+        <p className="flex gap-3 rounded-lg bg-muted p-4 text-sm">
+          <MailCheck className="mt-0.5 h-5 w-5 shrink-0 text-gold-dark" aria-hidden="true" />
+          <span>
+            Enviamos um código para <strong className="break-all">{pending.email}</strong>. Ele vale por 15 minutos —
+            confira também a caixa de spam.
+          </span>
+        </p>
+        <CodeInput value={codigo} onChange={setCodigo} error={error} />
+        <Button type="submit" size="lg" className="w-full" loading={loading} disabled={codigo.length !== 6}>
+          Confirmar e criar conta
+        </Button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <ResendCode seconds={pending.reenvio_em_segundos} onResend={handleResend} />
+          <button
+            type="button"
+            onClick={onBack}
+            className="cursor-pointer text-sm text-muted-foreground underline-offset-4 hover:underline"
+          >
+            Corrigir meus dados
+          </button>
+        </div>
+      </form>
+    </AuthCard>
+  )
+}
+
 function validate(form) {
   const errors = {}
   if (!form.nome.trim()) errors.nome = 'Informe seu nome'
@@ -31,14 +105,16 @@ function validate(form) {
   if (!isValidCpf(form.cpf)) errors.cpf = 'CPF inválido'
   if (form.telefone && !isValidPhone(form.telefone)) errors.telefone = 'Informe DDD + número'
   if (!form.senha) errors.senha = 'Crie uma senha'
-  else if (form.senha.length < MIN_PASSWORD) errors.senha = `A senha precisa ter pelo menos ${MIN_PASSWORD} caracteres`
+  else {
+    const issue = passwordIssue(form.senha, personOf(form))
+    if (issue) errors.senha = issue
+  }
   if (form.confirmarSenha !== form.senha) errors.confirmarSenha = 'As senhas não coincidem'
   return errors
 }
 
 export function Cadastro() {
   const { register } = useAuth()
-  const navigate = useNavigate()
   const location = useLocation()
   const from = location.state?.from
 
@@ -46,6 +122,8 @@ export function Cadastro() {
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
   const [loading, setLoading] = useState(false)
+  // Código enviado: { email, expira_em, reenvio_em_segundos } — mostra a etapa de confirmação
+  const [pending, setPending] = useState(null)
 
   const update = (field, mask) => (event) => {
     const value = mask ? mask(event.target.value) : event.target.value
@@ -63,7 +141,7 @@ export function Cadastro() {
 
     setLoading(true)
     try {
-      const user = await register({
+      const enviado = await register({
         nome: form.nome.trim(),
         email: form.email.trim(),
         cpf: onlyDigits(form.cpf),
@@ -71,13 +149,15 @@ export function Cadastro() {
         data_nascimento: form.data_nascimento || null,
         senha: form.senha,
       })
-      toast.success('Conta criada!', { description: 'Agora é só escolher seus doces.' })
-      navigate(redirectAfterAuth(user, from), { replace: true })
+      setPending(enviado)
     } catch (err) {
       setSubmitError(getErrorMessage(err, 'Não foi possível criar sua conta. Tente novamente.'))
+    } finally {
       setLoading(false)
     }
   }
+
+  if (pending) return <ConfirmEmail pending={pending} onBack={() => setPending(null)} from={from} />
 
   return (
     <AuthCard
@@ -151,8 +231,10 @@ export function Cadastro() {
           value={form.senha}
           onChange={update('senha')}
           error={errors.senha}
-          hint={`Pelo menos ${MIN_PASSWORD} caracteres.`}
         />
+        <div className="-mt-3">
+          <PasswordStrength senha={form.senha} pessoa={personOf(form)} />
+        </div>
 
         <PasswordField
           label="Confirmar senha"

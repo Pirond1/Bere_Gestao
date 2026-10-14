@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class ConfiguracaoUpdate(BaseModel):
@@ -12,6 +12,24 @@ class ConfiguracaoUpdate(BaseModel):
     dias_fechados: Optional[list[int]] = None
     endereco_retirada: Optional[str] = Field(default=None, max_length=255)
     horario_retirada: Optional[str] = Field(default=None, max_length=100)
+    email_remetente_nome: Optional[str] = Field(default=None, max_length=100)
+    # Vazio = sem reply-to (respostas vão para o endereço que envia)
+    email_resposta: Optional[EmailStr] = None
+
+    @field_validator("email_remetente_nome")
+    @classmethod
+    def nome_remetente(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        if not v:
+            raise ValueError("Informe o nome que aparece como remetente")
+        return v
+
+    @field_validator("email_resposta", mode="before")
+    @classmethod
+    def resposta_vazia(cls, v):
+        return None if isinstance(v, str) and not v.strip() else v
 
     @field_validator("dias_fechados")
     @classmethod
@@ -42,6 +60,8 @@ class ConfiguracaoRead(BaseModel):
     dias_fechados: list[int]
     endereco_retirada: Optional[str]
     horario_retirada: Optional[str]
+    email_remetente_nome: str
+    email_resposta: Optional[str]
     created_at: datetime
     updated_at: datetime
 

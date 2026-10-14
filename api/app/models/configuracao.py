@@ -18,3 +18,7 @@ class ConfiguracaoModel(BaseModel):
     # Onde e quando retirar — vão no aviso de pedido pronto; nulos = ficam fora da mensagem
     endereco_retirada = Column(String(255), nullable=True)
     horario_retirada = Column(String(100), nullable=True)
+    # Como os e-mails aparecem para o cliente; o endereço que envia fica no .env (SMTP_REMETENTE)
+    email_remetente_nome = Column(String(100), nullable=False, default="Dona Berê Doces")
+    # Respostas do cliente vão para cá (reply-to) — normalmente o e-mail da proprietária
+    email_resposta = Column(String(150), nullable=True)

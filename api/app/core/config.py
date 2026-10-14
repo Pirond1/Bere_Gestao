@@ -17,6 +17,15 @@ class Settings(BaseSettings):
     MERCADOPAGO_WEBHOOK_SECRET: str = ""
     # Com credenciais de teste o comprador precisa ser o usuário de teste do Mercado Pago
     MERCADOPAGO_SANDBOX: bool = True
+    # Envio de e-mail (BG-15). Em produção: servidor do provedor (ex.: smtp.gmail.com com senha de app)
+    SMTP_HOST: str = "mailpit"
+    SMTP_PORT: int = 1025
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    # "starttls" (porta 587), "ssl" (porta 465) ou "nenhuma" (Mailpit)
+    SMTP_SEGURANCA: str = "nenhuma"
+    # Endereço que envia — precisa ser a conta autenticada no SMTP, senão o provedor recusa ou marca como spam
+    SMTP_REMETENTE: str = "nao-responda@donabere.local"
     # Origens do frontend autorizadas a chamar a API, separadas por vírgula
     CORS_ORIGINS: str = "http://localhost:5173"
 

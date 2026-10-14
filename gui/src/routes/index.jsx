@@ -12,6 +12,7 @@ import { MinhaConta } from '../pages/cliente/MinhaConta'
 import { Pagamento } from '../pages/cliente/Pagamento'
 import { PedidoDetalhe } from '../pages/cliente/PedidoDetalhe'
 import { Produto } from '../pages/cliente/Produto'
+import { RecuperarSenha } from '../pages/cliente/RecuperarSenha'
 import { Vitrine } from '../pages/cliente/Vitrine'
 import { NotFound } from '../pages/NotFound'
 import { GuestRoute, ProtectedRoute } from './guards'
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
         children: [
           { path: 'login', Component: Login },
           { path: 'cadastro', Component: Cadastro },
+          { path: 'recuperar-senha', Component: RecuperarSenha },
         ],
       },
       {

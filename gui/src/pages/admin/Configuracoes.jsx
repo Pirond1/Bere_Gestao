@@ -1,4 +1,4 @@
-import { CalendarDays, QrCode, RotateCw, Store } from 'lucide-react'
+import { CalendarDays, Mail, QrCode, RotateCw, Send, Store } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
@@ -8,9 +8,10 @@ import { Card } from '../../components/ui/Card'
 import { Field } from '../../components/ui/Field'
 import { formatMinutes } from '../../hooks/usePaymentDeadline'
 import { useAsync } from '../../hooks/useAsync'
-import { getSettings, updateSettings } from '../../services/settingsService'
+import { getSettings, sendTestEmail, updateSettings } from '../../services/settingsService'
 import { cn } from '../../utils/cn'
 import { getErrorMessage } from '../../utils/errors'
+import { isValidEmail } from '../../utils/validators'
 
 // Mesma numeração da API (date.weekday()): 0 = segunda … 6 = domingo
 const WEEKDAYS = [
@@ -37,6 +38,8 @@ const toForm = (c) => ({
   dias_fechados: c.dias_fechados,
   endereco_retirada: c.endereco_retirada ?? '',
   horario_retirada: c.horario_retirada ?? '',
+  email_remetente_nome: c.email_remetente_nome,
+  email_resposta: c.email_resposta ?? '',
 })
 
 function antecedenciaHint(dias) {
@@ -44,6 +47,34 @@ function antecedenciaHint(dias) {
   if (dias === 0) return 'O cliente pode pedir para retirar no mesmo dia.'
   if (dias === 1) return 'Um pedido feito hoje pode ser retirado a partir de amanhã.'
   return `Um pedido feito hoje pode ser retirado daqui a ${dias} dias.`
+}
+
+/** Manda um e-mail para o próprio admin com o que já está salvo. */
+function TestEmailButton({ dirty }) {
+  const [sending, setSending] = useState(false)
+
+  const handleClick = async () => {
+    setSending(true)
+    try {
+      toast.success(await sendTestEmail())
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <Button variant="outline" size="sm" onClick={handleClick} loading={sending} disabled={dirty}>
+        <Send className="h-4 w-4" aria-hidden="true" />
+        Enviar e-mail de teste
+      </Button>
+      <span className="text-xs text-muted-foreground">
+        {dirty ? 'Salve as alterações antes de testar.' : 'Vai para o e-mail com que você entra no painel.'}
+      </span>
+    </div>
+  )
 }
 
 function validate(form) {
@@ -55,6 +86,10 @@ function validate(form) {
     }
   }
   if (form.dias_fechados.length === 7) errors.dias_fechados = 'A loja precisa atender em pelo menos um dia'
+  if (!form.email_remetente_nome.trim()) errors.email_remetente_nome = 'Informe o nome que aparece nos e-mails'
+  if (form.email_resposta.trim() && !isValidEmail(form.email_resposta.trim())) {
+    errors.email_resposta = 'Informe um e-mail válido'
+  }
   return errors
 }
 
@@ -106,6 +141,8 @@ function SettingsForm({ initial }) {
         dias_fechados: form.dias_fechados,
         endereco_retirada: form.endereco_retirada.trim() || null,
         horario_retirada: form.horario_retirada.trim() || null,
+        email_remetente_nome: form.email_remetente_nome.trim(),
+        email_resposta: form.email_resposta.trim() || null,
       })
       const novo = toForm(atualizada)
       setSaved(novo)
@@ -224,6 +261,35 @@ function SettingsForm({ initial }) {
           onChange={update('horario_retirada')}
           placeholder="Ex.: das 9h às 18h"
         />
+      </Section>
+
+      <Section
+        icon={Mail}
+        title="E-mails"
+        description="Como os e-mails da loja (códigos de cadastro e de recuperação de senha) aparecem para o cliente."
+      >
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field
+            label="Nome do remetente"
+            maxLength={100}
+            value={form.email_remetente_nome}
+            onChange={update('email_remetente_nome')}
+            error={errors.email_remetente_nome}
+            hint="Aparece como “De:” na caixa de entrada."
+          />
+          <Field
+            label="E-mail para respostas"
+            optional
+            type="email"
+            maxLength={150}
+            value={form.email_resposta}
+            onChange={update('email_resposta')}
+            error={errors.email_resposta}
+            placeholder="seuemail@exemplo.com"
+            hint="Quando o cliente responder um e-mail da loja, a resposta chega aqui."
+          />
+        </div>
+        <TestEmailButton dirty={dirty} />
       </Section>
 
       {error && <Alert>{error}</Alert>}
