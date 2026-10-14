@@ -12,6 +12,7 @@ from app.routers import (
     agenda,
     auth,
     avaliacao,
+    backup,
     categoria,
     cliente,
     configuracao,
@@ -69,6 +70,7 @@ app.include_router(pedido.router)
 app.include_router(pagamento.router)
 app.include_router(avaliacao.router)
 app.include_router(relatorio.router)
+app.include_router(backup.router)
 
 # Fotos enviadas pelo painel (BG-13). O Python 3.12 não conhece .webp e serviria como octet-stream
 mimetypes.add_type("image/webp", ".webp")

@@ -15,6 +15,7 @@ import {
   YAxis,
 } from 'recharts'
 
+import { BackupStatus } from '../../components/admin/BackupStatus'
 import { PaymentMethodSplit } from '../../components/admin/PaymentMethodSplit'
 import { PeriodFilter } from '../../components/admin/PeriodFilter'
 import { StatCard } from '../../components/admin/StatCard'
@@ -320,6 +321,9 @@ export function Dashboard() {
           </div>
         </>
       )}
+
+      {/* Fora do relatório: aparece mesmo se as vendas não carregarem */}
+      <BackupStatus />
     </div>
   )
 }

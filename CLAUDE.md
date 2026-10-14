@@ -36,6 +36,7 @@ A documentação completa de requisitos está em `docs/ERS.docx` (consulte sempr
 ```
 Berê_Gestão/
 ├── docker-compose.yml
+├── backup/                 # container de backup (backup.sh, restaurar.sh) — BG-23
 ├── .env                    # variáveis sensíveis (NÃO commitar)
 ├── api/                    # FastAPI
 │   ├── Dockerfile
@@ -157,6 +158,7 @@ docker exec bere_api pytest
 - **Docs Swagger:** http://localhost:8000/docs
 - **MySQL:** localhost:3306 (user: `bere_user`, db: `bere_gestao`)
 - **Mailpit (e-mails de desenvolvimento):** http://localhost:8025 — recebe todos os e-mails enviados pela API (códigos de cadastro, recuperação de senha). Em produção, configurar `SMTP_*` no `.env`.
+- **Backup (BG-23):** container `bere_backup` faz banco + fotos todo dia às 03:00 em `backups/` (fora do git — LGPD), com cópia opcional no Drive via rclone (`BACKUP_REMOTO`). Manual: `docker exec bere_backup backup agora`; restaurar: `docker exec -it bere_backup restaurar <arquivo>`. Detalhes no README.
 
 ---
 

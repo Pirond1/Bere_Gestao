@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     SMTP_SEGURANCA: str = "nenhuma"
     # Endereço que envia — precisa ser a conta autenticada no SMTP, senão o provedor recusa ou marca como spam
     SMTP_REMETENTE: str = "nao-responda@donabere.local"
+    # Pasta onde o container de backup grava os arquivos e a situação do último backup (BG-23)
+    BACKUPS_DIR: Path = Path("/backups")
     # Origens do frontend autorizadas a chamar a API, separadas por vírgula
     CORS_ORIGINS: str = "http://localhost:5173"
 
