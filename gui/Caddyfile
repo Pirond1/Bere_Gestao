@@ -1,0 +1,43 @@
+# Caddy em produção (BG-24). DOMINIO e ACME_EMAIL vêm do .env pelo docker-compose.prod.yml
+# O certificado HTTPS é emitido e renovado sozinho (Let's Encrypt) — basta o DNS apontar para a VPS
+
+{
+	email {$ACME_EMAIL}
+}
+
+(seguranca) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
+
+# Loja e painel (PWA)
+{$DOMINIO} {
+	import seguranca
+	encode zstd gzip
+	root * /srv
+
+	# Arquivos do build têm hash no nome: podem ficar guardados para sempre.
+	# O resto (index.html, sw.js, manifest) sempre confere se há versão nova — senão a atualização do PWA demora a chegar
+	@app not path /assets/*
+	header @app Cache-Control "no-cache"
+	header /assets/* Cache-Control "public, max-age=31536000, immutable"
+
+	# SPA: qualquer rota que não é arquivo abre o index.html e o React Router resolve
+	try_files {path} /index.html
+	file_server
+}
+
+www.{$DOMINIO} {
+	redir https://{$DOMINIO}{uri} permanent
+}
+
+# API (FastAPI) — também recebe o webhook do Mercado Pago em /pagamentos/webhook
+api.{$DOMINIO} {
+	import seguranca
+	encode zstd gzip
+	reverse_proxy api:8000
+}

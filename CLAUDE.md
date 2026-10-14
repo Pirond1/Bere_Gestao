@@ -36,6 +36,8 @@ A documentação completa de requisitos está em `docs/ERS.docx` (consulte sempr
 ```
 Berê_Gestão/
 ├── docker-compose.yml
+├── docker-compose.prod.yml # produção na VPS: + Caddy (HTTPS), sem Mailpit — BG-24
+├── .env.example            # modelo do .env de produção
 ├── backup/                 # container de backup (backup.sh, restaurar.sh) — BG-23
 ├── .env                    # variáveis sensíveis (NÃO commitar)
 ├── api/                    # FastAPI
@@ -50,6 +52,8 @@ Berê_Gestão/
 │       ├── routers/        # endpoints
 │       └── services/       # lógica de negócio
 └── gui/                    # React PWA
+    ├── Dockerfile          # produção: build do Vite servido pelo Caddy
+    ├── Caddyfile           # DOMINIO (front) e api.DOMINIO (proxy da API)
     └── src/
         ├── pages/cliente/  # Vitrine, Pedido, Pagamento, Avaliacao
         └── pages/admin/    # Dashboard, Pedidos, Produtos, Clientes, RelatorioNPS
@@ -159,6 +163,7 @@ docker exec bere_api pytest
 - **MySQL:** localhost:3306 (user: `bere_user`, db: `bere_gestao`)
 - **Mailpit (e-mails de desenvolvimento):** http://localhost:8025 — recebe todos os e-mails enviados pela API (códigos de cadastro, recuperação de senha). Em produção, configurar `SMTP_*` no `.env`.
 - **Backup (BG-23):** container `bere_backup` faz banco + fotos todo dia às 03:00 em `backups/` (fora do git — LGPD), com cópia opcional no Drive via rclone (`BACKUP_REMOTO`). Manual: `docker exec bere_backup backup agora`; restaurar: `docker exec -it bere_backup restaurar <arquivo>`. Detalhes no README.
+- **Produção (BG-24):** `docker compose -f docker-compose.prod.yml up -d --build` na VPS (migrations rodam ao subir); primeiro admin com `docker exec -it bere_api python -m app.scripts.criar_admin`. Passo a passo completo no README, seção Deploy.
 
 ---
 

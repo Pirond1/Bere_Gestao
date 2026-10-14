@@ -1,0 +1,5 @@
+node_modules
+dist
+# O .env local aponta para localhost — em produção os valores vêm dos build args
+.env
+.env.*
