@@ -18,6 +18,13 @@ def _validar_telefone(telefone: str) -> str:
     return digits
 
 
+def _telefone_na_edicao(v: Optional[str]) -> Optional[str]:
+    """Telefone é obrigatório (RF_B01): na edição dá para trocar, não apagar."""
+    if v is None:
+        raise ValueError("Informe o telefone (WhatsApp) — é por ele que a loja avisa sobre o pedido")
+    return _validar_telefone(v)
+
+
 def _validar_cpf(cpf: str) -> str:
     cpf = re.sub(r"[^0-9]", "", cpf)
     if len(cpf) != 11 or cpf == cpf[0] * 11:
@@ -89,9 +96,7 @@ class ClienteUpdate(BaseModel):
     @field_validator("telefone")
     @classmethod
     def telefone_valido(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            return _validar_telefone(v)
-        return v
+        return _telefone_na_edicao(v)
 
 
 class ClienteRead(BaseModel):

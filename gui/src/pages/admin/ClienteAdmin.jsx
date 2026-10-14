@@ -43,7 +43,7 @@ function ClientData({ cliente, onSaved }) {
     const found = {}
     if (!form.nome.trim()) found.nome = 'Informe o nome'
     if (!isValidCpf(form.cpf)) found.cpf = 'CPF inválido'
-    if (form.telefone && !isValidPhone(form.telefone)) found.telefone = 'Informe DDD + número'
+    if (!isValidPhone(form.telefone)) found.telefone = 'Informe o telefone com DDD'
     if (form.data_nascimento && form.data_nascimento > toDateKey(new Date())) found.data_nascimento = 'Data no futuro'
     setErrors(found)
     setError('')
@@ -54,7 +54,7 @@ function ClientData({ cliente, onSaved }) {
       await updateClient(cliente.id, {
         nome: form.nome.trim(),
         cpf: onlyDigits(form.cpf),
-        telefone: form.telefone ? onlyDigits(form.telefone) : null,
+        telefone: onlyDigits(form.telefone),
         data_nascimento: form.data_nascimento || null,
       })
       toast.success('Cadastro atualizado')
@@ -75,7 +75,6 @@ function ClientData({ cliente, onSaved }) {
           <Field label="CPF" inputMode="numeric" value={form.cpf} onChange={update('cpf', maskCpf)} error={errors.cpf} />
           <Field
             label="Telefone (WhatsApp)"
-            optional
             type="tel"
             inputMode="numeric"
             value={form.telefone}

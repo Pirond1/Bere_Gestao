@@ -262,7 +262,7 @@ def alterar_conta(
 ) -> tuple[UsuarioModel, Optional[str]]:
     """Devolve a conta e, se a senha mudou, um token novo — o atual cai junto com as outras sessões."""
     campos = dados.model_dump(exclude_unset=True)
-    # Nulo em senha/nome/CPF significa "não mudar"; no telefone e no nascimento, apaga
+    # Nulo em senha/nome/CPF significa "não mudar"; no nascimento, apaga (telefone nulo o schema recusa)
     for campo in ("senha", "nome", "cpf", "senha_atual"):
         if campos.get(campo) is None:
             campos.pop(campo, None)

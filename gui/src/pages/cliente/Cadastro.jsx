@@ -103,7 +103,7 @@ function validate(form) {
   if (!form.nome.trim()) errors.nome = 'Informe seu nome'
   if (!isValidEmail(form.email.trim())) errors.email = 'Informe um e-mail válido'
   if (!isValidCpf(form.cpf)) errors.cpf = 'CPF inválido'
-  if (form.telefone && !isValidPhone(form.telefone)) errors.telefone = 'Informe DDD + número'
+  if (!isValidPhone(form.telefone)) errors.telefone = 'Informe o celular com DDD'
   if (!form.senha) errors.senha = 'Crie uma senha'
   else {
     const issue = passwordIssue(form.senha, personOf(form))
@@ -145,7 +145,7 @@ export function Cadastro() {
         nome: form.nome.trim(),
         email: form.email.trim(),
         cpf: onlyDigits(form.cpf),
-        telefone: form.telefone ? onlyDigits(form.telefone) : null,
+        telefone: onlyDigits(form.telefone),
         data_nascimento: form.data_nascimento || null,
         senha: form.senha,
       })
@@ -204,8 +204,7 @@ export function Cadastro() {
             error={errors.cpf}
           />
           <Field
-            label="Celular"
-            optional
+            label="Celular (WhatsApp)"
             type="tel"
             autoComplete="tel-national"
             placeholder="(18) 99999-9999"

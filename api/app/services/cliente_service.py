@@ -20,7 +20,7 @@ from app.services.relatorio_service import foi_pago
 # Pedido que ainda vai acontecer: excluir o cliente apagaria o contato de quem vai retirar
 STATUS_EM_ABERTO = (status_pedido_service.AGUARDANDO_PAGAMENTO, *status_pedido_service.EM_ANDAMENTO)
 # Nulo apaga; nos demais campos significa "não mudar"
-CAMPOS_OPCIONAIS = {"telefone", "data_nascimento"}
+CAMPOS_OPCIONAIS = {"data_nascimento"}
 
 
 def criar(db: Session, dados: ClienteCreate) -> ClienteModel:
