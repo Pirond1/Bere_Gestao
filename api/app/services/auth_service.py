@@ -10,7 +10,7 @@ from app.models.cliente import ClienteModel
 from app.models.codigo_verificacao import CodigoVerificacaoModel
 from app.models.usuario import UsuarioModel
 from app.schemas.auth import AlterarContaInput, RegistroInput
-from app.services import codigo_service, email_service, senha_service
+from app.services import codigo_service, email_service, lgpd_service, senha_service
 
 MENSAGEM_RECUPERACAO = (
     "Se houver uma conta com este e-mail, enviamos um código para redefinir a senha. "
@@ -49,7 +49,7 @@ def _codigo_enviado(registro: CodigoVerificacaoModel) -> dict:
 def iniciar_cadastro(db: Session, dados: RegistroInput) -> dict:
     """Valida tudo e envia o código. A conta só é criada em `confirmar_cadastro`."""
     _conferir_disponibilidade(db, dados.email, dados.cpf)
-    pendente = dados.model_dump(mode="json", exclude={"senha", "email"})
+    pendente = dados.model_dump(mode="json", exclude={"senha", "email", "aceite_termos"})
     # A senha já vai em hash — o cadastro pendente nunca guarda a senha em texto
     pendente["senha_hash"] = hash_senha(dados.senha)
     try:
@@ -107,6 +107,8 @@ def confirmar_cadastro(db: Session, email: str, codigo: str) -> dict:
         usuario_id=usuario.id,
     )
     db.add(cliente)
+    # O aceite foi obrigatório no formulário; vale a partir da criação da conta
+    lgpd_service.registrar_aceite(cliente)
     # O cadastro pendente guardava dados pessoais: não precisa mais deles (LGPD — mínimo necessário)
     registro.dados = None
     db.commit()

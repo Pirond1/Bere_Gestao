@@ -1,4 +1,4 @@
-import { CalendarDays, Mail, QrCode, RotateCw, Send, Store } from 'lucide-react'
+import { CalendarDays, Mail, QrCode, RotateCw, Send, Share2, Store } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
@@ -11,7 +11,8 @@ import { useAsync } from '../../hooks/useAsync'
 import { getSettings, sendTestEmail, updateSettings } from '../../services/settingsService'
 import { cn } from '../../utils/cn'
 import { getErrorMessage } from '../../utils/errors'
-import { isValidEmail } from '../../utils/validators'
+import { maskCnpj, maskPhone, onlyDigits } from '../../utils/format'
+import { isValidEmail, isValidPhone } from '../../utils/validators'
 
 // Mesma numeração da API (date.weekday()): 0 = segunda … 6 = domingo
 const WEEKDAYS = [
@@ -40,6 +41,11 @@ const toForm = (c) => ({
   horario_retirada: c.horario_retirada ?? '',
   email_remetente_nome: c.email_remetente_nome,
   email_resposta: c.email_resposta ?? '',
+  whatsapp_loja: c.whatsapp_loja ? maskPhone(c.whatsapp_loja) : '',
+  instagram: c.instagram ?? '',
+  facebook: c.facebook ?? '',
+  tiktok: c.tiktok ?? '',
+  cnpj: c.cnpj ? maskCnpj(c.cnpj) : '',
 })
 
 function antecedenciaHint(dias) {
@@ -90,6 +96,8 @@ function validate(form) {
   if (form.email_resposta.trim() && !isValidEmail(form.email_resposta.trim())) {
     errors.email_resposta = 'Informe um e-mail válido'
   }
+  if (form.whatsapp_loja && !isValidPhone(form.whatsapp_loja)) errors.whatsapp_loja = 'Informe o número com DDD'
+  if (form.cnpj && onlyDigits(form.cnpj).length !== 14) errors.cnpj = 'O CNPJ tem 14 dígitos'
   return errors
 }
 
@@ -143,6 +151,12 @@ function SettingsForm({ initial }) {
         horario_retirada: form.horario_retirada.trim() || null,
         email_remetente_nome: form.email_remetente_nome.trim(),
         email_resposta: form.email_resposta.trim() || null,
+        // Vazio apaga: o item some do rodapé
+        whatsapp_loja: onlyDigits(form.whatsapp_loja) || null,
+        instagram: form.instagram.trim() || null,
+        facebook: form.facebook.trim() || null,
+        tiktok: form.tiktok.trim() || null,
+        cnpj: onlyDigits(form.cnpj) || null,
       })
       const novo = toForm(atualizada)
       setSaved(novo)
@@ -290,6 +304,59 @@ function SettingsForm({ initial }) {
           />
         </div>
         <TestEmailButton dirty={dirty} />
+      </Section>
+
+      <Section
+        icon={Share2}
+        title="Contato e redes sociais"
+        description="Aparecem no rodapé do site. Deixe em branco o que a loja não usa — o item não aparece."
+      >
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field
+            label="WhatsApp da loja"
+            optional
+            type="tel"
+            inputMode="numeric"
+            value={form.whatsapp_loja}
+            onChange={(e) => setForm((f) => ({ ...f, whatsapp_loja: maskPhone(e.target.value) }))}
+            error={errors.whatsapp_loja}
+            placeholder="(18) 99999-9999"
+            hint="Também liga o botão flutuante do WhatsApp na loja."
+          />
+          <Field
+            label="CNPJ"
+            optional
+            inputMode="numeric"
+            value={form.cnpj}
+            onChange={(e) => setForm((f) => ({ ...f, cnpj: maskCnpj(e.target.value) }))}
+            error={errors.cnpj}
+            placeholder="00.000.000/0000-00"
+          />
+          <Field
+            label="Instagram"
+            optional
+            maxLength={100}
+            value={form.instagram}
+            onChange={update('instagram')}
+            placeholder="@donaberedoces ou o link do perfil"
+          />
+          <Field
+            label="TikTok"
+            optional
+            maxLength={100}
+            value={form.tiktok}
+            onChange={update('tiktok')}
+            placeholder="@donaberedoces ou o link do perfil"
+          />
+          <Field
+            label="Facebook"
+            optional
+            maxLength={150}
+            value={form.facebook}
+            onChange={update('facebook')}
+            placeholder="Nome da página ou o link"
+          />
+        </div>
       </Section>
 
       {error && <Alert>{error}</Alert>}

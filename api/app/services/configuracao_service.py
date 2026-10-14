@@ -4,7 +4,10 @@ from sqlalchemy.orm import Session
 from app.models.configuracao import ConfiguracaoModel
 from app.schemas.configuracao import ConfiguracaoUpdate
 
-CAMPOS_OPCIONAIS = {"endereco_retirada", "horario_retirada", "email_resposta"}
+CAMPOS_OPCIONAIS = {
+    "endereco_retirada", "horario_retirada", "email_resposta",
+    "whatsapp_loja", "instagram", "facebook", "tiktok", "cnpj",
+}
 
 
 def obter(db: Session) -> ConfiguracaoModel:

@@ -26,6 +26,7 @@ const initialForm = {
   data_nascimento: '',
   senha: '',
   confirmarSenha: '',
+  aceite: false,
 }
 
 const personOf = (form) => ({ nome: form.nome, email: form.email, cpf: form.cpf })
@@ -110,6 +111,7 @@ function validate(form) {
     if (issue) errors.senha = issue
   }
   if (form.confirmarSenha !== form.senha) errors.confirmarSenha = 'As senhas não coincidem'
+  if (!form.aceite) errors.aceite = 'Para criar a conta, aceite a Política de Privacidade e os Termos'
   return errors
 }
 
@@ -148,6 +150,7 @@ export function Cadastro() {
         telefone: onlyDigits(form.telefone),
         data_nascimento: form.data_nascimento || null,
         senha: form.senha,
+        aceite_termos: form.aceite,
       })
       setPending(enviado)
     } catch (err) {
@@ -243,9 +246,32 @@ export function Cadastro() {
           error={errors.confirmarSenha}
         />
 
+        <div>
+          <label className="flex cursor-pointer gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={form.aceite}
+              onChange={(e) => {
+                setForm((prev) => ({ ...prev, aceite: e.target.checked }))
+                if (errors.aceite) setErrors((prev) => ({ ...prev, aceite: undefined }))
+              }}
+              aria-invalid={Boolean(errors.aceite)}
+              className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-chocolate"
+            />
+            <span>
+              Li e aceito a{' '}
+              <Link to="/privacidade" target="_blank" className="font-medium underline underline-offset-2">
+                Política de Privacidade e os Termos de Uso
+              </Link>
+              .
+            </span>
+          </label>
+          {errors.aceite && <p className="mt-1.5 text-sm text-destructive">{errors.aceite}</p>}
+        </div>
+
         <p className="flex gap-2 text-xs text-muted-foreground">
           <ShieldCheck className="h-4 w-4 shrink-0 text-gold-dark" aria-hidden="true" />
-          Seus dados são usados apenas para identificar e entregar seus pedidos, conforme a LGPD.
+          Seus dados são usados apenas para identificar você e cuidar dos seus pedidos, conforme a LGPD.
         </p>
 
         <Button type="submit" size="lg" className="w-full" loading={loading}>

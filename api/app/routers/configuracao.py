@@ -18,7 +18,7 @@ def buscar_configuracao(db: Session = Depends(get_db), _=Depends(get_admin_atual
 
 @router.get("/publica", response_model=ConfiguracaoPublicaRead)
 def buscar_configuracao_publica(db: Session = Depends(get_db)):
-    """Parâmetros que o cliente vê no checkout (ex.: prazo para pagar)."""
+    """O que é público da loja: prazo para pagar, contato, endereço/horário de retirada, redes e CNPJ."""
     return configuracao_service.obter(db)
 
 

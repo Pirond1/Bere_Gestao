@@ -37,3 +37,30 @@ export async function confirmEmailChange(codigo) {
   const { data } = await api.post('/auth/email/confirmar', { codigo })
   return data
 }
+
+/** { email, nome, termos_pendentes } — a janela de aceite da política usa o termos_pendentes. */
+export async function getAccountStatus() {
+  const { data } = await api.get('/auth/me')
+  return data
+}
+
+export async function acceptTerms() {
+  await api.post('/auth/termos/aceitar')
+}
+
+/** LGPD (art. 18, II e V): baixa um arquivo .json com tudo o que a loja guarda sobre o cliente. */
+export async function downloadMyData() {
+  const { data } = await api.get('/auth/meus-dados')
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `meus-dados-dona-bere-${data.gerado_em}.json`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+/** LGPD (art. 18, VI): exclui (anonimiza) a própria conta. Pede a senha atual. */
+export async function deleteMyAccount(senhaAtual) {
+  await api.post('/auth/conta/excluir', { senha_atual: senhaAtual })
+}

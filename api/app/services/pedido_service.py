@@ -16,6 +16,7 @@ from app.schemas.pedido import PedidoCreate
 from app.services import (
     agendamento_service,
     cliente_service,
+    lgpd_service,
     pagamento_service,
     produto_service,
     status_pedido_service,
@@ -28,7 +29,8 @@ def criar(db: Session, cliente_id: int, dados: PedidoCreate) -> PedidoModel:
     Tudo acontece em uma única transação: se qualquer validação falhar,
     a vaga reservada é descartada junto com o pedido.
     """
-    cliente_service.buscar_por_id(db, cliente_id)
+    cliente = cliente_service.buscar_por_id(db, cliente_id)
+    lgpd_service.exigir_aceite(cliente)
     # Reserva a vaga primeiro — se o dia estiver cheio, nem monta o pedido
     agenda = agendamento_service.reservar(db, dados.data_retirada)
     status_inicial = status_pedido_service.buscar_por_descricao(

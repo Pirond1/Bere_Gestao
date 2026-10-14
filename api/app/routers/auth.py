@@ -7,6 +7,7 @@ from app.db.session import get_db
 from app.models.cliente import ClienteModel
 from app.models.usuario import UsuarioModel
 from app.schemas.auth import (
+    ExcluirContaInput,
     AlterarContaInput,
     AlterarContaRead,
     CodigoEnviadoRead,
@@ -23,7 +24,7 @@ from app.schemas.auth import (
     TokenResponse,
 )
 from app.schemas.endereco import EnderecoCreate, EnderecoRead
-from app.services import auth_service, email_service, endereco_service, usuario_service
+from app.services import auth_service, email_service, endereco_service, lgpd_service, usuario_service
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
 
@@ -79,7 +80,32 @@ def dados_da_conta(usuario_atual: UsuarioModel = Depends(get_usuario_atual)):
     return MeRead(
         email=usuario_atual.email,
         nome=usuario_atual.cliente.nome if usuario_atual.cliente else None,
+        termos_pendentes=lgpd_service.termos_pendentes(usuario_atual.cliente),
     )
+
+
+@router.post("/termos/aceitar", status_code=status.HTTP_204_NO_CONTENT)
+def aceitar_termos(db: Session = Depends(get_db), cliente_atual: ClienteModel = Depends(get_cliente_atual)):
+    """Conta antiga (ou política nova): registra o aceite da versão vigente."""
+    lgpd_service.aceitar(db, cliente_atual)
+
+
+@router.get("/meus-dados")
+def baixar_meus_dados(cliente_atual: ClienteModel = Depends(get_cliente_atual)):
+    """LGPD art. 18, II e V: cadastro, endereço, aceite, pedidos e avaliações do cliente logado."""
+    return lgpd_service.exportar(cliente_atual)
+
+
+@router.post("/conta/excluir", status_code=status.HTTP_204_NO_CONTENT)
+def excluir_minha_conta(
+    dados: ExcluirContaInput,
+    tarefas: BackgroundTasks,
+    db: Session = Depends(get_db),
+    usuario_atual: UsuarioModel = Depends(get_usuario_atual),
+):
+    """LGPD art. 18, VI: o próprio cliente exclui a conta (anonimiza). Pede a senha atual."""
+    envio = lgpd_service.excluir_propria_conta(db, usuario_atual, dados.senha_atual)
+    tarefas.add_task(email_service.enviar_em_segundo_plano, *envio)
 
 
 @router.get("/perfil", response_model=AlterarContaRead)

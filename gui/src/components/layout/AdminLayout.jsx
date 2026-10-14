@@ -5,6 +5,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '../../hooks/useAuth'
 import { useNewOrdersCount } from '../../hooks/useNewOrdersCount'
 import { cn } from '../../utils/cn'
+import { ScrollToTop } from '../ScrollToTop'
 import { PwaPrompts } from '../PwaPrompts'
 import { BrandIcon } from '../ui/Logo'
 
@@ -141,6 +142,7 @@ export function AdminLayout() {
 
         <main className="min-w-0 flex-1 p-4 md:p-8">
           <Outlet />
+          <ScrollToTop />
         </main>
       </div>
       <PwaPrompts />
