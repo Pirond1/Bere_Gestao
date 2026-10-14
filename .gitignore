@@ -106,6 +106,10 @@ alembic/__pycache__/
 mysql-data/
 mysqldump_*.sql
 
+# Backups (BG-23): contêm dados pessoais de clientes (LGPD) e o acesso ao Drive
+backups/
+backup/config/
+
 #  NODE / REACT / VITE
 node_modules/
 dist/

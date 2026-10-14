@@ -160,6 +160,32 @@ VITE_API_URL=http://localhost:8000
 
 ---
 
+## Backup
+
+O container `bere_backup` sobe junto com o `docker-compose up` e faz, **todo dia às 03:00** (horário de Brasília), um backup do banco e das fotos dos produtos num único arquivo `.tar.gz`, na pasta `backups/` (fora do git, porque tem dados pessoais de clientes). Na primeira subida ele já faz um backup na hora. O painel admin mostra quando foi o último backup na Visão geral.
+
+- **Retenção:** últimos 7 backups diários (`backups/diarios/`) e 4 semanais, feitos aos domingos (`backups/semanais/`).
+- **Backup manual:** `docker exec bere_backup backup agora`
+- **Restaurar:** `docker exec -it bere_backup restaurar diarios/bere_2026-10-14_0300.tar.gz`. **Substitui todo o banco e as fotos**, por isso pede que você digite `RESTAURAR` para confirmar. Sem argumento, lista os backups disponíveis.
+- **Logs:** `docker logs bere_backup`
+
+Variáveis opcionais no `.env`: `BACKUP_HORARIO` (padrão `03:00`), `BACKUP_DIAS` (padrão `7`), `BACKUP_SEMANAS` (padrão `4`) e `BACKUP_REMOTO` (ver abaixo).
+
+### Cópia fora do servidor (Google Drive)
+
+Se o backup ficar só no servidor, perder a VPS significa perder o backup junto. Com o [rclone](https://rclone.org), cada backup também é enviado para o Drive:
+
+1. No seu computador, instale o rclone (`winget install Rclone.Rclone`) e rode `rclone config`:
+   - `n` (novo remote), nome `drive`, tipo `drive` (Google Drive). Nas perguntas seguintes, aceite os padrões e autorize no navegador quando ele abrir.
+   - **Recomendado (LGPD):** crie um segundo remote, nome `drive-cripto`, tipo `crypt`, apontando para `drive:bere-backups` e com uma senha forte. Os arquivos vão criptografados para o Drive. **Guarde essa senha fora do servidor:** sem ela, o backup não pode ser lido.
+2. Copie o arquivo gerado (`rclone config file` mostra onde ele está) para `backup/config/rclone.conf`. A pasta é ignorada pelo git.
+3. No `.env`, coloque `BACKUP_REMOTO=drive-cripto:` (ou `BACKUP_REMOTO=drive:bere-backups`, sem criptografia) e rode `docker-compose up -d backup`.
+4. Teste com `docker exec bere_backup backup agora`. O painel passa a mostrar "Cópia guardada fora do servidor".
+
+No Drive, as pastas `diarios/` e `semanais/` seguem a mesma retenção. Os arquivos antigos são apagados pela idade, nunca espelhando a pasta local: se o disco do servidor se perder, as cópias do Drive continuam lá. Para restaurar a partir do Drive, baixe o arquivo para `backups/` e use o `restaurar` normalmente (com criptografia: `rclone copy drive-cripto:diarios/<arquivo> backups/`).
+
+---
+
 ## Requisitos funcionais implementados
 
 | ID | Função | Perfil |
