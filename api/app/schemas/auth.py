@@ -37,6 +37,12 @@ class TokenResponse(BaseModel):
 class MeRead(BaseModel):
     email: str
     nome: Optional[str] = None
+    # Cliente que ainda não aceitou a versão vigente da Política de Privacidade (BG-20)
+    termos_pendentes: bool = False
+
+
+class ExcluirContaInput(BaseModel):
+    senha_atual: str
 
 
 class MensagemRead(BaseModel):
@@ -61,6 +67,8 @@ class RegistroInput(BaseModel):
     # Obrigatório (RF_B01): é por ele que a loja avisa que o pedido está pronto
     telefone: str
     data_nascimento: Optional[date] = None
+    # LGPD: aceite explícito da Política de Privacidade e dos Termos de Uso
+    aceite_termos: bool
 
     nome_valido = field_validator("nome")(_validar_nome)
     nascimento_valido = field_validator("data_nascimento")(_validar_nascimento)
@@ -74,6 +82,13 @@ class RegistroInput(BaseModel):
     @classmethod
     def telefone_valido(cls, v: str) -> str:
         return _validar_telefone(v)
+
+    @field_validator("aceite_termos")
+    @classmethod
+    def termos_aceitos(cls, v: bool) -> bool:
+        if not v:
+            raise ValueError("É preciso aceitar a Política de Privacidade e os Termos de Uso")
+        return v
 
     @model_validator(mode="after")
     def senha_forte(self):

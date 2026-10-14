@@ -1,6 +1,6 @@
-import { KeyRound, LogOut, MapPin, RotateCw, UserRound } from 'lucide-react'
+import { Download, KeyRound, LogOut, MapPin, RotateCw, ShieldCheck, Trash2, UserRound } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
 import { AddressForm } from '../../components/AddressForm'
@@ -15,6 +15,8 @@ import { useAsync } from '../../hooks/useAsync'
 import { useAuth } from '../../hooks/useAuth'
 import {
   confirmEmailChange,
+  deleteMyAccount,
+  downloadMyData,
   getProfile,
   requestEmailChange,
   saveAddress,
@@ -389,6 +391,110 @@ function Access({ perfil, onSaved }) {
   )
 }
 
+function DeleteAccount({ onDeleted }) {
+  const [open, setOpen] = useState(false)
+  const [senha, setSenha] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleDelete = async (e) => {
+    e.preventDefault()
+    if (!senha) {
+      setError('Informe sua senha atual')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      await deleteMyAccount(senha)
+      onDeleted()
+    } catch (err) {
+      setError(getErrorMessage(err))
+      setLoading(false)
+    }
+  }
+
+  if (!open) {
+    return (
+      <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setOpen(true)}>
+        <Trash2 className="h-4 w-4" aria-hidden="true" />
+        Excluir minha conta
+      </Button>
+    )
+  }
+
+  return (
+    <form onSubmit={handleDelete} noValidate className="space-y-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+      <div>
+        <p className="mb-1 font-medium">Excluir sua conta?</p>
+        <p className="text-sm text-muted-foreground">
+          Apagamos seu nome, CPF, telefone, data de nascimento, endereço e e-mail, e você não consegue mais entrar. Os
+          pedidos já feitos continuam no histórico da loja sem identificar você. Não dá para desfazer — se quiser, baixe
+          seus dados antes.
+        </p>
+      </div>
+      <PasswordField
+        label="Senha atual"
+        autoComplete="current-password"
+        value={senha}
+        onChange={(e) => setSenha(e.target.value)}
+        error={error}
+      />
+      <div className="flex flex-wrap gap-3">
+        <Button type="submit" className="bg-destructive hover:bg-destructive/90" loading={loading}>
+          Excluir minha conta
+        </Button>
+        <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
+          Manter conta
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+/** Direitos do titular (LGPD art. 18): acessar/baixar os dados e excluir a conta. */
+function Privacy({ onDeleted }) {
+  const [downloading, setDownloading] = useState(false)
+
+  const handleDownload = async () => {
+    setDownloading(true)
+    try {
+      await downloadMyData()
+      toast.success('Arquivo com seus dados baixado')
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  return (
+    <Section
+      icon={ShieldCheck}
+      title="Privacidade e dados"
+      description="Seus direitos pela LGPD: ver tudo o que a loja guarda sobre você e excluir sua conta quando quiser."
+    >
+      <div className="space-y-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm">
+            Cadastro, endereço, pedidos e avaliações em um arquivo.{' '}
+            <Link to="/privacidade" className="text-muted-foreground underline underline-offset-2 hover:text-chocolate">
+              Ler a Política de Privacidade
+            </Link>
+          </p>
+          <Button variant="outline" size="sm" onClick={handleDownload} loading={downloading} className="shrink-0">
+            <Download className="h-4 w-4" aria-hidden="true" />
+            Baixar meus dados
+          </Button>
+        </div>
+        <div className="border-t pt-4">
+          <DeleteAccount onDeleted={onDeleted} />
+        </div>
+      </div>
+    </Section>
+  )
+}
+
 export function MinhaConta() {
   const { data: perfil, loading, error, reload, refresh } = useAsync(getProfile)
   const { logout } = useAuth()
@@ -397,6 +503,12 @@ export function MinhaConta() {
   const handleLogout = () => {
     logout()
     navigate('/', { replace: true })
+  }
+
+  const handleDeleted = () => {
+    logout()
+    navigate('/', { replace: true })
+    toast.success('Sua conta foi excluída', { description: 'Enviamos a confirmação para o seu e-mail.' })
   }
 
   return (
@@ -423,6 +535,7 @@ export function MinhaConta() {
           <PersonalData cliente={perfil.cliente} onSaved={refresh} />
           <Address endereco={perfil.cliente.enderecos[0] ?? null} onSaved={refresh} />
           <Access perfil={perfil} onSaved={refresh} />
+          <Privacy onDeleted={handleDeleted} />
         </div>
       )}
 

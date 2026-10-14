@@ -1,7 +1,37 @@
+import re
 from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from app.schemas.cliente import _validar_telefone
+
+
+def _vazio(v):
+    return v is None or (isinstance(v, str) and not v.strip())
+
+
+def _perfil(v: str, dominio: str, padrao: str, nome: str) -> str:
+    """Aceita "@perfil", "perfil" ou o link completo e guarda só o perfil."""
+    v = v.strip()
+    link = re.search(rf"{dominio}/(?:@)?([^/?#]+)", v, re.I)
+    perfil = (link.group(1) if link else v).lstrip("@")
+    if not re.fullmatch(padrao, perfil):
+        raise ValueError(f"{nome} inválido — informe o @perfil ou o link")
+    return perfil
+
+
+def _validar_cnpj(v: str) -> str:
+    cnpj = re.sub(r"\D", "", v)
+    if len(cnpj) != 14 or cnpj == cnpj[0] * 14:
+        raise ValueError("CNPJ inválido")
+    for tamanho in (12, 13):
+        pesos = list(range(tamanho - 7, 1, -1)) + list(range(9, 1, -1))
+        soma = sum(int(d) * p for d, p in zip(cnpj[:tamanho], pesos))
+        digito = 0 if soma % 11 < 2 else 11 - soma % 11
+        if digito != int(cnpj[tamanho]):
+            raise ValueError("CNPJ inválido")
+    return cnpj
 
 
 class ConfiguracaoUpdate(BaseModel):
@@ -15,6 +45,42 @@ class ConfiguracaoUpdate(BaseModel):
     email_remetente_nome: Optional[str] = Field(default=None, max_length=100)
     # Vazio = sem reply-to (respostas vão para o endereço que envia)
     email_resposta: Optional[EmailStr] = None
+    # Rodapé (BG-21): opcionais — texto vazio apaga e o item some do site
+    whatsapp_loja: Optional[str] = None
+    instagram: Optional[str] = None
+    facebook: Optional[str] = None
+    tiktok: Optional[str] = None
+    cnpj: Optional[str] = None
+
+    @field_validator("whatsapp_loja", "instagram", "facebook", "tiktok", "cnpj", mode="before")
+    @classmethod
+    def texto_vazio(cls, v):
+        return None if _vazio(v) else v
+
+    @field_validator("whatsapp_loja")
+    @classmethod
+    def whatsapp_valido(cls, v: Optional[str]) -> Optional[str]:
+        return _validar_telefone(v) if v is not None else None
+
+    @field_validator("instagram")
+    @classmethod
+    def instagram_valido(cls, v: Optional[str]) -> Optional[str]:
+        return _perfil(v, r"instagram\.com", r"[A-Za-z0-9._]{1,30}", "Instagram") if v is not None else None
+
+    @field_validator("tiktok")
+    @classmethod
+    def tiktok_valido(cls, v: Optional[str]) -> Optional[str]:
+        return _perfil(v, r"tiktok\.com", r"[A-Za-z0-9._]{2,24}", "TikTok") if v is not None else None
+
+    @field_validator("facebook")
+    @classmethod
+    def facebook_valido(cls, v: Optional[str]) -> Optional[str]:
+        return _perfil(v, r"facebook\.com", r"[A-Za-z0-9.\-]{2,100}", "Facebook") if v is not None else None
+
+    @field_validator("cnpj")
+    @classmethod
+    def cnpj_valido(cls, v: Optional[str]) -> Optional[str]:
+        return _validar_cnpj(v) if v is not None else None
 
     @field_validator("email_remetente_nome")
     @classmethod
@@ -62,6 +128,11 @@ class ConfiguracaoRead(BaseModel):
     horario_retirada: Optional[str]
     email_remetente_nome: str
     email_resposta: Optional[str]
+    whatsapp_loja: Optional[str]
+    instagram: Optional[str]
+    facebook: Optional[str]
+    tiktok: Optional[str]
+    cnpj: Optional[str]
     created_at: datetime
     updated_at: datetime
 
@@ -72,5 +143,14 @@ class ConfiguracaoPublicaRead(BaseModel):
     """O que o cliente precisa saber da configuração — nada além disso fica público."""
 
     prazo_pagamento_minutos: int
+    # Contato e identificação da loja — Política de Privacidade e rodapé
+    email_resposta: Optional[str] = None
+    endereco_retirada: Optional[str] = None
+    horario_retirada: Optional[str] = None
+    whatsapp_loja: Optional[str] = None
+    instagram: Optional[str] = None
+    facebook: Optional[str] = None
+    tiktok: Optional[str] = None
+    cnpj: Optional[str] = None
 
     model_config = {"from_attributes": True}

@@ -15,6 +15,7 @@ import { Produto } from '../pages/cliente/Produto'
 import { RecuperarSenha } from '../pages/cliente/RecuperarSenha'
 import { Vitrine } from '../pages/cliente/Vitrine'
 import { NotFound } from '../pages/NotFound'
+import { Privacidade } from '../pages/Privacidade'
 import { GuestRoute, ProtectedRoute } from './guards'
 
 export const router = createBrowserRouter([
@@ -24,6 +25,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, Component: Home },
       { path: 'vitrine', Component: Vitrine },
+      { path: 'privacidade', Component: Privacidade },
       { path: 'produto/:id', Component: Produto },
       { path: 'carrinho', Component: Carrinho },
       {

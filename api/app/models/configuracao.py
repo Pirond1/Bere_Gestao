@@ -22,3 +22,9 @@ class ConfiguracaoModel(BaseModel):
     email_remetente_nome = Column(String(100), nullable=False, default="Dona Berê Doces")
     # Respostas do cliente vão para cá (reply-to) — normalmente o e-mail da proprietária
     email_resposta = Column(String(150), nullable=True)
+    # Contato e redes da loja no rodapé (BG-21) — opcionais; o que estiver vazio não aparece
+    whatsapp_loja = Column(String(11), nullable=True)
+    instagram = Column(String(30), nullable=True)
+    facebook = Column(String(100), nullable=True)
+    tiktok = Column(String(30), nullable=True)
+    cnpj = Column(String(14), nullable=True)

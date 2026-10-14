@@ -5,8 +5,12 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '../../hooks/useAuth'
 import { useCarrinho } from '../../hooks/useCarrinho'
 import { cn } from '../../utils/cn'
+import { ScrollToTop } from '../ScrollToTop'
 import { PwaPrompts } from '../PwaPrompts'
+import { WhatsAppButton } from '../WhatsAppButton'
+import { TermsGate } from '../TermsGate'
 import { Button } from '../ui/Button'
+import { Footer } from './Footer'
 import { LogoHorizontal } from '../ui/Logo'
 
 const baseNav = [
@@ -151,15 +155,13 @@ export function ClientLayout() {
 
       <main className="flex-1">
         <Outlet />
+        <ScrollToTop />
       </main>
 
-      <footer className="mt-16 bg-chocolate py-8 text-vanilla">
-        <div className="mx-auto max-w-6xl px-4 text-center">
-          <p className="text-sm text-vanilla/80">© {new Date().getFullYear()} Dona Berê Doces — Confeitaria Artesanal</p>
-          <p className="mt-1 text-xs text-vanilla/60">Feito à mão, com carinho, para você</p>
-        </div>
-      </footer>
+      <Footer />
       <PwaPrompts />
+      <TermsGate />
+      <WhatsAppButton />
     </div>
   )
 }

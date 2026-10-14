@@ -85,11 +85,6 @@ def atualizar_cliente(
 
 
 @router.delete("/{cliente_id}", status_code=status.HTTP_204_NO_CONTENT)
-def deletar_cliente(
-    cliente_id: int,
-    db: Session = Depends(get_db),
-    usuario_atual: UsuarioModel = Depends(get_usuario_atual),
-):
-    cliente = cliente_service.buscar_por_id(db, cliente_id)
-    verificar_acesso_cliente(usuario_atual, cliente)
+def deletar_cliente(cliente_id: int, db: Session = Depends(get_db), _=Depends(get_admin_atual)):
+    """Exclusão pela loja (anonimiza). O próprio cliente usa POST /auth/conta/excluir, que pede a senha."""
     cliente_service.deletar(db, cliente_id)
