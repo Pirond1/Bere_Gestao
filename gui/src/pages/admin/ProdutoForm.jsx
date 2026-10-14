@@ -12,7 +12,6 @@ import { useAsync } from '../../hooks/useAsync'
 import {
   createProduct,
   deleteProduct,
-  removeProductPhoto,
   updateProduct,
   uploadProductPhoto,
 } from '../../services/adminProductService'
@@ -24,6 +23,8 @@ import { getErrorMessage } from '../../utils/errors'
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const PHOTO_MAX_BYTES = 10 * 1024 * 1024
 const MAX_DESCRIPTION = 1000
+// RF_B02: barra preço exorbitante (mesmo teto de schemas/produto.py)
+const MAX_PRICE = 500
 
 /** "12,50", "1.234,5" ou "12.50" → "12.50"; null se não for um valor válido. */
 function parsePrice(text) {
@@ -67,12 +68,12 @@ function Switch({ checked, onChange, label, description }) {
   )
 }
 
-function PhotoPicker({ src, onPick, onRemove, error }) {
+function PhotoPicker({ src, onPick, error }) {
   const inputId = useId()
 
   const handleChange = (e) => {
     const file = e.target.files?.[0]
-    // Permite escolher o mesmo arquivo de novo depois de remover
+    // Permite escolher o mesmo arquivo de novo
     e.target.value = ''
     if (file) onPick(file)
   }
@@ -92,12 +93,6 @@ function PhotoPicker({ src, onPick, onRemove, error }) {
           {src ? 'Trocar foto' : 'Escolher foto'}
           <input id={inputId} type="file" accept={PHOTO_TYPES.join(',')} onChange={handleChange} className="sr-only" />
         </label>
-        {src && (
-          <Button variant="ghost" size="sm" onClick={onRemove} className="text-destructive">
-            <Trash2 className="h-4 w-4" aria-hidden="true" />
-            Remover
-          </Button>
-        )}
       </div>
       {error ? (
         <p className="mt-1.5 text-sm text-destructive">{error}</p>
@@ -173,8 +168,8 @@ function ProductEditor({ produto, categorias }) {
     categoria_id: produto ? String(produto.categoria_id) : categorias.length === 1 ? String(categorias[0].id) : '',
     disponivel: produto?.disponivel ?? true,
   })
-  // Foto nova escolhida (enviada só ao salvar) ou pedido para remover a atual
-  const [photo, setPhoto] = useState({ file: null, preview: null, removed: false })
+  // Foto nova escolhida — enviada só ao salvar. A foto é obrigatória: dá para trocar, não remover
+  const [photo, setPhoto] = useState({ file: null, preview: null })
   const [errors, setErrors] = useState({})
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -183,7 +178,7 @@ function ProductEditor({ produto, categorias }) {
   useEffect(() => () => photo.preview && URL.revokeObjectURL(photo.preview), [photo.preview])
 
   const update = (campo) => (e) => setForm((f) => ({ ...f, [campo]: e.target.value }))
-  const currentPhoto = photo.preview ?? (photo.removed ? null : produto?.foto)
+  const currentPhoto = photo.preview ?? produto?.foto
 
   const pickPhoto = (file) => {
     if (!PHOTO_TYPES.includes(file.type)) {
@@ -195,7 +190,7 @@ function ProductEditor({ produto, categorias }) {
       return
     }
     setErrors((e) => ({ ...e, foto: undefined }))
-    setPhoto({ file, preview: URL.createObjectURL(file), removed: false })
+    setPhoto({ file, preview: URL.createObjectURL(file) })
   }
 
   const save = async (overrides = {}) => {
@@ -203,19 +198,24 @@ function ProductEditor({ produto, categorias }) {
     const preco = parsePrice(dados.preco)
     const found = {}
     if (!dados.nome.trim()) found.nome = 'Informe o nome do produto'
+    if (!dados.descricao.trim()) found.descricao = 'Informe a descrição do produto'
     if (!preco) found.preco = 'Informe um preço válido, ex.: 45,90'
+    else if (Number(preco) > MAX_PRICE) found.preco = 'O preço máximo é R$ 5.000,00 — confira se não sobrou um zero'
     if (!dados.categoria_id) found.categoria_id = 'Escolha a categoria'
+    if (!currentPhoto) found.foto = 'Escolha uma foto — ela aparece na vitrine'
     setErrors(found)
     setError('')
     if (Object.keys(found).length) return
 
     setSaving(true)
+    // Sem foto o produto não entra na vitrine: se a foto nova ainda vai subir, a vitrine fica para depois
+    const showAfterPhoto = dados.disponivel && (isNew || Boolean(photo.file))
     const payload = {
       nome: dados.nome.trim(),
-      descricao: dados.descricao.trim() || null,
+      descricao: dados.descricao.trim(),
       preco,
       categoria_id: Number(dados.categoria_id),
-      disponivel: dados.disponivel,
+      ...(showAfterPhoto ? {} : { disponivel: dados.disponivel }),
     }
 
     let salvo
@@ -229,7 +229,7 @@ function ProductEditor({ produto, categorias }) {
 
     try {
       if (photo.file) await uploadProductPhoto(salvo.id, photo.file)
-      else if (photo.removed && produto?.foto) await removeProductPhoto(salvo.id)
+      if (showAfterPhoto) salvo = await updateProduct(salvo.id, { disponivel: true })
     } catch (err) {
       // Os dados já foram salvos: fica na edição do produto para tentar a foto de novo
       toast.error('Produto salvo, mas a foto não foi atualizada', { description: getErrorMessage(err) })
@@ -261,7 +261,7 @@ function ProductEditor({ produto, categorias }) {
 
           <div className="space-y-1.5">
             <label htmlFor="descricao" className="block text-sm font-medium">
-              Descrição <span className="font-normal text-muted-foreground">(opcional)</span>
+              Descrição
             </label>
             <textarea
               id="descricao"
@@ -270,11 +270,18 @@ function ProductEditor({ produto, categorias }) {
               maxLength={MAX_DESCRIPTION}
               rows={4}
               placeholder="Sabor, recheio, tamanho, quantas pessoas serve…"
-              className="w-full resize-y rounded-lg border-2 bg-white p-3 text-base placeholder:text-muted-foreground/60 focus:border-gold focus:outline-none"
+              aria-invalid={Boolean(errors.descricao)}
+              className={cn(
+                'w-full resize-y rounded-lg border-2 bg-white p-3 text-base placeholder:text-muted-foreground/60 focus:border-gold focus:outline-none',
+                errors.descricao && 'border-destructive/60',
+              )}
             />
-            <p className="text-right text-xs text-muted-foreground tabular-nums">
-              {form.descricao.length}/{MAX_DESCRIPTION}
-            </p>
+            <div className="flex justify-between gap-3 text-xs">
+              <span className="text-sm text-destructive">{errors.descricao}</span>
+              <span className="text-muted-foreground tabular-nums">
+                {form.descricao.length}/{MAX_DESCRIPTION}
+              </span>
+            </div>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
@@ -357,7 +364,6 @@ function ProductEditor({ produto, categorias }) {
           <PhotoPicker
             src={currentPhoto}
             onPick={pickPhoto}
-            onRemove={() => setPhoto({ file: null, preview: null, removed: true })}
             error={errors.foto}
           />
         </Card>

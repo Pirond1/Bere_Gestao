@@ -76,14 +76,14 @@ function PersonalData({ cliente, onSaved }) {
     e.preventDefault()
     const found = {}
     if (!nome.trim()) found.nome = 'Informe seu nome'
-    if (telefone && !isValidPhone(telefone)) found.telefone = 'Informe DDD + número'
+    if (!isValidPhone(telefone)) found.telefone = 'Informe o telefone com DDD'
     // Datas AAAA-MM-DD comparam como texto
     if (nascimento && nascimento > toDateKey(new Date())) found.nascimento = 'A data não pode ser no futuro'
     setErrors(found)
     if (Object.keys(found).length) return
     const conta = await submit({
       nome: nome.trim(),
-      telefone: telefone ? onlyDigits(telefone) : null,
+      telefone: onlyDigits(telefone),
       data_nascimento: nascimento || null,
     })
     if (conta) onSaved()
@@ -103,7 +103,6 @@ function PersonalData({ cliente, onSaved }) {
         <div className="grid gap-5 sm:grid-cols-2">
           <Field
             label="Telefone (WhatsApp)"
-            optional
             type="tel"
             autoComplete="tel-national"
             inputMode="numeric"

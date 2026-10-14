@@ -4,7 +4,7 @@ from typing import Annotated, Optional
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 from app.core.tempo import hoje
-from app.schemas.cliente import ClienteRead, _validar_cpf, _validar_telefone
+from app.schemas.cliente import ClienteRead, _telefone_na_edicao, _validar_cpf, _validar_telefone
 from app.services import senha_service
 
 # Código de 6 dígitos enviado por e-mail (BG-15)
@@ -58,7 +58,8 @@ class RegistroInput(BaseModel):
     # campos de Cliente
     nome: str = Field(max_length=100)
     cpf: str
-    telefone: Optional[str] = None
+    # Obrigatório (RF_B01): é por ele que a loja avisa que o pedido está pronto
+    telefone: str
     data_nascimento: Optional[date] = None
 
     nome_valido = field_validator("nome")(_validar_nome)
@@ -71,10 +72,8 @@ class RegistroInput(BaseModel):
 
     @field_validator("telefone")
     @classmethod
-    def telefone_valido(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            return _validar_telefone(v)
-        return v
+    def telefone_valido(cls, v: str) -> str:
+        return _validar_telefone(v)
 
     @model_validator(mode="after")
     def senha_forte(self):
@@ -143,9 +142,7 @@ class AlterarContaInput(BaseModel):
     @field_validator("telefone")
     @classmethod
     def telefone_valido(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            return _validar_telefone(v)
-        return v
+        return _telefone_na_edicao(v)
 
 
 # Também é a resposta de GET /auth/perfil
