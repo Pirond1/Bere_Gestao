@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
 import * as authService from '../services/authService'
-import { decodeToken, getStoredToken, storeToken } from '../utils/token'
+import { TOKEN_RENEWED_EVENT, decodeToken, getStoredToken, storeToken } from '../utils/token'
 import { AuthContext } from './auth-context'
 
 function readInitialToken() {
@@ -30,9 +30,12 @@ export function AuthProvider({ children }) {
     [saveToken],
   )
 
-  const register = useCallback(
-    async (dados) => {
-      const newToken = await authService.register(dados)
+  // Cadastro em duas etapas (BG-15): os dados enviam o código; o código cria a conta e entra
+  const register = useCallback((dados) => authService.register(dados), [])
+
+  const confirmRegistration = useCallback(
+    async (email, codigo) => {
+      const newToken = await authService.confirmRegistration(email, codigo)
       saveToken(newToken)
       return decodeToken(newToken)
     },
@@ -40,6 +43,13 @@ export function AuthProvider({ children }) {
   )
 
   const logout = useCallback(() => saveToken(null), [saveToken])
+
+  // Token renovado pela API (atividade) ou trocado junto com a senha: só atualiza o estado
+  useEffect(() => {
+    const onRenewed = (event) => setToken(event.detail)
+    window.addEventListener(TOKEN_RENEWED_EVENT, onRenewed)
+    return () => window.removeEventListener(TOKEN_RENEWED_EVENT, onRenewed)
+  }, [])
 
   // Sessão expirada: pelo horário do token ou por um 401 vindo da API
   useEffect(() => {
@@ -68,9 +78,10 @@ export function AuthProvider({ children }) {
       isAdmin: user?.tipo === 'admin',
       login,
       register,
+      confirmRegistration,
       logout,
     }),
-    [user, login, register, logout],
+    [user, login, register, confirmRegistration, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

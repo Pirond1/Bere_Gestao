@@ -16,7 +16,8 @@ export function Login() {
   const location = useLocation()
   const from = location.state?.from
 
-  const [email, setEmail] = useState('')
+  // Volta da recuperação de senha com o e-mail já preenchido
+  const [email, setEmail] = useState(location.state?.email ?? '')
   const [senha, setSenha] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -61,13 +62,24 @@ export function Login() {
           required
         />
 
-        <PasswordField
-          label="Senha"
-          autoComplete="current-password"
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
-          required
-        />
+        <div className="space-y-1.5">
+          <PasswordField
+            label="Senha"
+            autoComplete="current-password"
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+            required
+          />
+          <div className="text-right">
+            <Link
+              to="/recuperar-senha"
+              state={{ email: email.trim() }}
+              className="text-sm text-muted-foreground underline-offset-4 hover:text-chocolate hover:underline"
+            >
+              Esqueci minha senha
+            </Link>
+          </div>
+        </div>
 
         <Button type="submit" size="lg" className="w-full" loading={loading} disabled={!email || !senha}>
           Entrar

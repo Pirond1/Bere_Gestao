@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, ClipboardList, MessageSquareText, RotateCw, Search } from 'lucide-react'
+import { CheckCheck, ChevronLeft, ChevronRight, ClipboardList, MessageSquareText, RotateCw, Search } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
@@ -7,7 +7,13 @@ import { OrderStatusBadge } from '../../components/OrderStatusBadge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { useAsync } from '../../hooks/useAsync'
-import { advanceOrder, listPanelOrders } from '../../services/adminOrderService'
+import { usePolling } from '../../hooks/usePolling'
+import {
+  advanceOrder,
+  listPanelOrders,
+  markAllOrdersSeen,
+  notifyOrdersChanged,
+} from '../../services/adminOrderService'
 import { cn } from '../../utils/cn'
 import { formatDateLong, toDateKey } from '../../utils/date'
 import { getErrorMessage } from '../../utils/errors'
@@ -21,7 +27,15 @@ const STAGES = [
   { id: 'confirmados', label: 'Confirmados', status: [STATUS.CONFIRMADO], accent: 'border-sky-300 bg-sky-50' },
   { id: 'producao', label: 'Em produção', status: [STATUS.EM_PRODUCAO], accent: 'border-orange-300 bg-orange-50' },
   { id: 'prontos', label: 'Aguardando retirada', status: [STATUS.PRONTO], accent: 'border-emerald-300 bg-emerald-50' },
-  { id: 'retirados', label: 'Retirados', status: [STATUS.ENTREGUE], accent: 'border-stone-300 bg-stone-100', recentFirst: true },
+  // Sem filtro de data, mostra só os de hoje — o total histórico só cresceria e não diz nada do dia
+  {
+    id: 'retirados',
+    label: 'Retirados',
+    status: [STATUS.ENTREGUE],
+    accent: 'border-stone-300 bg-stone-100',
+    recentFirst: true,
+    todayWhenUnfiltered: true,
+  },
 ]
 
 // Abas para o que não é etapa de produção. O que está em andamento vem em ordem de retirada;
@@ -87,6 +101,8 @@ function OrderRow({ pedido, onChanged }) {
         description: `Agora está como "${STATUS_INFO[atualizado.status.descricao].label}".`,
       })
       onChanged()
+      // Avançar também marca o pedido como visto
+      notifyOrdersChanged()
     } catch (err) {
       toast.error(getErrorMessage(err))
     } finally {
@@ -95,9 +111,17 @@ function OrderRow({ pedido, onChanged }) {
   }
 
   return (
-    <Card className="flex flex-col gap-3 p-4 transition-colors hover:border-gold sm:flex-row sm:items-center">
+    <Card
+      className={cn(
+        'flex flex-col gap-3 p-4 transition-colors hover:border-gold sm:flex-row sm:items-center',
+        pedido.novo && 'border-l-4 border-l-terracotta',
+      )}
+    >
       <Link to={`/admin/pedidos/${pedido.id}`} className="min-w-0 flex-1">
         <div className="mb-1 flex flex-wrap items-center gap-2">
+          {pedido.novo && (
+            <span className="rounded-full bg-terracotta px-2 py-0.5 text-xs font-semibold text-white">Novo</span>
+          )}
           <span className="font-medium">{pedido.cliente.nome}</span>
           <OrderStatusBadge descricao={pedido.status.descricao} />
           <span className="text-xs text-muted-foreground">Código #{pedido.id}</span>
@@ -123,6 +147,31 @@ function OrderRow({ pedido, onChanged }) {
   )
 }
 
+function MarkAllSeen({ onDone }) {
+  const [loading, setLoading] = useState(false)
+
+  const handleClick = async () => {
+    setLoading(true)
+    try {
+      const quantidade = await markAllOrdersSeen()
+      toast.success(`${quantidade} ${quantidade === 1 ? 'pedido marcado' : 'pedidos marcados'} como visto`)
+      notifyOrdersChanged()
+      onDone()
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Button variant="outline" size="sm" onClick={handleClick} loading={loading} className="self-start sm:self-auto">
+      <CheckCheck className="h-4 w-4" aria-hidden="true" />
+      Marcar todos como vistos
+    </Button>
+  )
+}
+
 export function Pedidos() {
   const [tab, setTab] = useState(TABS[0])
   const [dateFilter, setDateFilter] = useState(DATE_FILTERS[0].id)
@@ -130,19 +179,39 @@ export function Pedidos() {
   const busca = useDebounced(searchInput.trim())
   const [pagina, setPagina] = useState(1)
 
-  const fetchOrders = useCallback(() => {
-    const [data_inicio, data_fim] = DATE_FILTERS.find((f) => f.id === dateFilter).range()
-    return listPanelOrders({
-      status: tab.status,
-      data_inicio,
-      data_fim,
-      busca: busca || undefined,
-      mais_recentes_primeiro: Boolean(tab.recentFirst),
-      pagina,
-      limite: PAGE_SIZE,
-    })
-  }, [tab, dateFilter, busca, pagina])
-  const { data, loading, error, reload } = useAsync(fetchOrders)
+  const unfiltered = dateFilter === 'qualquer'
+
+  const fetchOrders = useCallback(async () => {
+    const range = (id) => DATE_FILTERS.find((f) => f.id === id).range()
+    const [data_inicio, data_fim] = range(tab.todayWhenUnfiltered && unfiltered ? 'hoje' : dateFilter)
+    const [hoje] = range('hoje')
+
+    const [lista, retiradosHoje] = await Promise.all([
+      listPanelOrders({
+        status: tab.status,
+        data_inicio,
+        data_fim,
+        busca: busca || undefined,
+        mais_recentes_primeiro: Boolean(tab.recentFirst),
+        pagina,
+        limite: PAGE_SIZE,
+      }),
+      // Sem filtro de data, o cartão "Retirados" conta só os de hoje
+      unfiltered
+        ? listPanelOrders({
+            status: [STATUS.ENTREGUE],
+            data_inicio: hoje,
+            data_fim: hoje,
+            busca: busca || undefined,
+            limite: 1,
+          })
+        : null,
+    ])
+    return { ...lista, retirados_hoje: retiradosHoje?.total ?? null }
+  }, [tab, dateFilter, unfiltered, busca, pagina])
+  const { data, loading, error, reload, refresh } = useAsync(fetchOrders)
+  // Pedidos que chegam com a tela aberta aparecem sem trocar de página
+  usePolling(refresh)
 
   // Qualquer mudança de filtro volta para a primeira página
   const changeFilter = (setter) => (value) => {
@@ -161,9 +230,12 @@ export function Pedidos() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <header>
-        <h1 className="mb-1 text-3xl">Pedidos</h1>
-        <p className="text-muted-foreground">Acompanhe as encomendas pela data de retirada.</p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="mb-1 text-3xl">Pedidos</h1>
+          <p className="text-muted-foreground">Acompanhe as encomendas pela data de retirada.</p>
+        </div>
+        {data?.itens.some((p) => p.novo) && <MarkAllSeen onDone={reload} />}
       </header>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" role="group" aria-label="Pedidos por etapa">
@@ -181,8 +253,13 @@ export function Pedidos() {
                 active && 'ring-2 ring-chocolate ring-offset-2 ring-offset-background',
               )}
             >
-              <span className="block font-serif text-3xl lining-nums">{countFor(stage) ?? '–'}</span>
-              <span className="text-sm">{stage.label}</span>
+              <span className="block font-serif text-3xl lining-nums">
+                {(stage.todayWhenUnfiltered && unfiltered ? data?.retirados_hoje : countFor(stage)) ?? '–'}
+              </span>
+              <span className="text-sm">
+                {stage.label}
+                {stage.todayWhenUnfiltered && unfiltered && ' hoje'}
+              </span>
             </button>
           )
         })}

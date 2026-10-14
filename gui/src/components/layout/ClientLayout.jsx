@@ -1,11 +1,16 @@
-import { LayoutDashboard, LogIn, LogOut, Menu, ShoppingBag, X } from 'lucide-react'
+import { LayoutDashboard, LogIn, LogOut, Menu, ShoppingBag, UserRound, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 
 import { useAuth } from '../../hooks/useAuth'
 import { useCarrinho } from '../../hooks/useCarrinho'
 import { cn } from '../../utils/cn'
+import { ScrollToTop } from '../ScrollToTop'
+import { PwaPrompts } from '../PwaPrompts'
+import { WhatsAppButton } from '../WhatsAppButton'
+import { TermsGate } from '../TermsGate'
 import { Button } from '../ui/Button'
+import { Footer } from './Footer'
 import { LogoHorizontal } from '../ui/Logo'
 
 const baseNav = [
@@ -18,14 +23,15 @@ function navClass({ isActive }) {
   return cn('transition-colors hover:text-gold', isActive && 'text-gold')
 }
 
+const iconLinkClass = ({ isActive }) =>
+  cn('relative flex h-10 w-10 items-center justify-center transition-colors hover:text-gold', isActive && 'text-gold')
+
 function CartLink() {
   const { itemCount } = useCarrinho()
   return (
     <NavLink
       to="/carrinho"
-      className={({ isActive }) =>
-        cn('relative flex h-10 w-10 items-center justify-center transition-colors hover:text-gold', isActive && 'text-gold')
-      }
+      className={iconLinkClass}
       aria-label={itemCount > 0 ? `Carrinho, ${itemCount} ${itemCount === 1 ? 'item' : 'itens'}` : 'Carrinho vazio'}
     >
       <ShoppingBag className="h-6 w-6" aria-hidden="true" />
@@ -37,6 +43,15 @@ function CartLink() {
           {itemCount > 99 ? '99+' : itemCount}
         </span>
       )}
+    </NavLink>
+  )
+}
+
+/** Minha conta (dados, endereço, senha e o botão Sair). */
+function AccountLink() {
+  return (
+    <NavLink to="/conta" className={iconLinkClass} aria-label="Minha conta" title="Minha conta">
+      <UserRound className="h-6 w-6" aria-hidden="true" />
     </NavLink>
   )
 }
@@ -54,7 +69,10 @@ export function ClientLayout() {
     setMenuOpen(false)
   }
 
-  const accountActions = isAuthenticated ? (
+  const isClient = isAuthenticated && !isAdmin
+
+  // Cliente sai pela tela Minha conta; o admin não tem essa tela, então Painel e Sair ficam aqui
+  const accountActions = isClient ? null : isAuthenticated ? (
     <>
       {isAdmin && (
         <Link to="/admin" className="flex items-center gap-2 transition-colors hover:text-gold">
@@ -92,13 +110,19 @@ export function ClientLayout() {
                 {item.label}
               </NavLink>
             ))}
-            {!isAdmin && <CartLink />}
-            <div className="flex items-center gap-6 border-l border-vanilla/20 pl-8">{accountActions}</div>
+            <div className="flex items-center gap-2">
+              {!isAdmin && <CartLink />}
+              {isClient && <AccountLink />}
+            </div>
+            {accountActions && (
+              <div className="flex items-center gap-6 border-l border-vanilla/20 pl-8">{accountActions}</div>
+            )}
           </nav>
 
-          {/* Mobile: carrinho sempre visível ao lado do menu */}
+          {/* Mobile: carrinho e conta sempre visíveis ao lado do menu */}
           <div className="flex items-center gap-1 md:hidden">
             {!isAdmin && <CartLink />}
+            {isClient && <AccountLink />}
             <button
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
@@ -119,9 +143,11 @@ export function ClientLayout() {
                   {item.label}
                 </NavLink>
               ))}
-              <div className="mt-2 flex flex-col items-start gap-4 border-t border-vanilla/20 pt-4">
-                {accountActions}
-              </div>
+              {accountActions && (
+                <div className="mt-2 flex flex-col items-start gap-4 border-t border-vanilla/20 pt-4">
+                  {accountActions}
+                </div>
+              )}
             </div>
           </nav>
         )}
@@ -129,14 +155,13 @@ export function ClientLayout() {
 
       <main className="flex-1">
         <Outlet />
+        <ScrollToTop />
       </main>
 
-      <footer className="mt-16 bg-chocolate py-8 text-vanilla">
-        <div className="mx-auto max-w-6xl px-4 text-center">
-          <p className="text-sm text-vanilla/80">© {new Date().getFullYear()} Dona Berê Doces — Confeitaria Artesanal</p>
-          <p className="mt-1 text-xs text-vanilla/60">Feito à mão, com carinho, para você</p>
-        </div>
-      </footer>
+      <Footer />
+      <PwaPrompts />
+      <TermsGate />
+      <WhatsAppButton />
     </div>
   )
 }

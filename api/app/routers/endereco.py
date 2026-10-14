@@ -1,13 +1,20 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Path, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_usuario_atual, verificar_acesso_cliente
 from app.db.session import get_db
 from app.models.usuario import UsuarioModel
-from app.schemas.endereco import EnderecoCreate, EnderecoRead, EnderecoUpdate
+from app.schemas.endereco import CepRead, EnderecoCreate, EnderecoRead, EnderecoUpdate
 from app.services import cliente_service, endereco_service
 
 router = APIRouter(prefix="/clientes/{cliente_id}/enderecos", tags=["Endereços"])
+cep_router = APIRouter(prefix="/enderecos", tags=["Endereços"])
+
+
+@cep_router.get("/cep/{cep}", response_model=CepRead)
+def consultar_cep(cep: str = Path(pattern=r"^\d{5}-?\d{3}$")):
+    """Rua, bairro, cidade e UF do CEP, pelo ViaCEP — preenche o formulário de endereço."""
+    return endereco_service.completar_cep(cep.replace("-", ""))
 
 
 @router.post("/", response_model=EnderecoRead, status_code=status.HTTP_201_CREATED)

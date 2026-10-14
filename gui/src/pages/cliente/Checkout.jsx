@@ -10,11 +10,11 @@ import { Card } from '../../components/ui/Card'
 import { useAsync } from '../../hooks/useAsync'
 import { useCarrinho } from '../../hooks/useCarrinho'
 import { useCartSync } from '../../hooks/useCartSync'
+import { usePaymentDeadline } from '../../hooks/usePaymentDeadline'
 import { createOrder, getAvailability } from '../../services/orderService'
 import { formatDateLong } from '../../utils/date'
 import { getErrorMessage } from '../../utils/errors'
 import { formatCurrency } from '../../utils/format'
-import { PAYMENT_DEADLINE_MINUTES } from '../../utils/paymentStatus'
 
 const MAX_NOTES = 500
 
@@ -35,6 +35,7 @@ export function Checkout() {
   const navigate = useNavigate()
   const syncing = useCartSync()
   const availability = useAsync(getAvailability)
+  const prazo = usePaymentDeadline()
 
   const [dataRetirada, setDataRetirada] = useState(null)
   const [observacoes, setObservacoes] = useState('')
@@ -168,7 +169,7 @@ export function Checkout() {
             </Button>
             <p className="mt-3 text-center text-xs text-muted-foreground">
               Na próxima etapa você paga com PIX ou cartão de crédito. A data fica reservada por{' '}
-              {PAYMENT_DEADLINE_MINUTES} minutos.
+              {prazo}.
             </p>
           </Card>
         </aside>

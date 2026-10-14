@@ -9,6 +9,7 @@ import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { useAsync } from '../../hooks/useAsync'
+import { usePaymentDeadline } from '../../hooks/usePaymentDeadline'
 import { getOrder } from '../../services/orderService'
 import { createPayment, getMe, listPayments } from '../../services/paymentService'
 import { cn } from '../../utils/cn'
@@ -17,7 +18,6 @@ import { getErrorMessage } from '../../utils/errors'
 import { formatCurrency } from '../../utils/format'
 import { STATUS } from '../../utils/orderStatus'
 import {
-  PAYMENT_DEADLINE_MINUTES,
   PAYMENT_METHOD,
   PAYMENT_STATUS,
   isPixOpen,
@@ -78,6 +78,7 @@ export function Pagamento() {
   const navigate = useNavigate()
   const fetchPage = useCallback(() => loadPaymentPage(id), [id])
   const { data, loading, error } = useAsync(fetchPage)
+  const prazo = usePaymentDeadline()
 
   // null = segue o PIX em aberto (se houver); depois, a escolha do cliente
   const [chosen, setChosen] = useState(null)
@@ -180,7 +181,7 @@ export function Pagamento() {
 
       <h1 className="mb-2 text-3xl md:text-4xl">Pagamento</h1>
       <p className="mb-8 text-muted-foreground">
-        Sua data de retirada está reservada. Conclua o pagamento em até {PAYMENT_DEADLINE_MINUTES} minutos
+        Sua data de retirada está reservada. Conclua o pagamento em até {prazo}
         para garantir o pedido.
       </p>
 

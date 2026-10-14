@@ -1,9 +1,27 @@
-from datetime import date
-from typing import Optional
+from datetime import date, datetime
+from typing import Annotated, Optional
 
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
-from app.schemas.cliente import ClienteRead, _validar_cpf, _validar_telefone
+from app.core.tempo import hoje
+from app.schemas.cliente import ClienteRead, _telefone_na_edicao, _validar_cpf, _validar_telefone
+from app.services import senha_service
+
+# Código de 6 dígitos enviado por e-mail (BG-15)
+Codigo = Annotated[str, Field(pattern=r"^\d{6}$")]
+
+
+def _validar_nascimento(data: Optional[date]) -> Optional[date]:
+    if data is not None and data > hoje():
+        raise ValueError("A data de nascimento não pode ser no futuro")
+    return data
+
+
+def _validar_nome(nome: str) -> str:
+    nome = nome.strip()
+    if not nome:
+        raise ValueError("Informe seu nome")
+    return nome
 
 
 class LoginInput(BaseModel):
@@ -19,6 +37,24 @@ class TokenResponse(BaseModel):
 class MeRead(BaseModel):
     email: str
     nome: Optional[str] = None
+    # Cliente que ainda não aceitou a versão vigente da Política de Privacidade (BG-20)
+    termos_pendentes: bool = False
+
+
+class ExcluirContaInput(BaseModel):
+    senha_atual: str
+
+
+class MensagemRead(BaseModel):
+    mensagem: str
+
+
+class CodigoEnviadoRead(BaseModel):
+    """O código foi enviado — a tela pede os 6 dígitos e controla o "reenviar"."""
+
+    email: str
+    expira_em: datetime
+    reenvio_em_segundos: int
 
 
 class RegistroInput(BaseModel):
@@ -26,10 +62,16 @@ class RegistroInput(BaseModel):
     email: EmailStr
     senha: str
     # campos de Cliente
-    nome: str
+    nome: str = Field(max_length=100)
     cpf: str
-    telefone: Optional[str] = None
+    # Obrigatório (RF_B01): é por ele que a loja avisa que o pedido está pronto
+    telefone: str
     data_nascimento: Optional[date] = None
+    # LGPD: aceite explícito da Política de Privacidade e dos Termos de Uso
+    aceite_termos: bool
+
+    nome_valido = field_validator("nome")(_validar_nome)
+    nascimento_valido = field_validator("data_nascimento")(_validar_nascimento)
 
     @field_validator("cpf")
     @classmethod
@@ -38,10 +80,32 @@ class RegistroInput(BaseModel):
 
     @field_validator("telefone")
     @classmethod
-    def telefone_valido(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            return _validar_telefone(v)
+    def telefone_valido(cls, v: str) -> str:
+        return _validar_telefone(v)
+
+    @field_validator("aceite_termos")
+    @classmethod
+    def termos_aceitos(cls, v: bool) -> bool:
+        if not v:
+            raise ValueError("É preciso aceitar a Política de Privacidade e os Termos de Uso")
         return v
+
+    @model_validator(mode="after")
+    def senha_forte(self):
+        # Depois dos campos: a força depende do nome, e-mail e CPF
+        erro = senha_service.problema(self.senha, self.nome, self.email, self.cpf)
+        if erro:
+            raise ValueError(erro)
+        return self
+
+
+class ConfirmarCadastroInput(BaseModel):
+    email: EmailStr
+    codigo: Codigo
+
+
+class ReenviarCodigoInput(BaseModel):
+    email: EmailStr
 
 
 class RegistroRead(BaseModel):
@@ -50,25 +114,57 @@ class RegistroRead(BaseModel):
     cliente: ClienteRead
 
 
+class RedefinirSenhaInput(BaseModel):
+    email: EmailStr
+    codigo: Codigo
+    nova_senha: str
+
+
+class SolicitarTrocaEmailInput(BaseModel):
+    novo_email: EmailStr
+    senha_atual: str
+
+
+class ConfirmarCodigoInput(BaseModel):
+    codigo: Codigo
+
+
 class AlterarContaInput(BaseModel):
-    # campos de Usuario
-    email: Optional[EmailStr] = None
+    """O e-mail não muda aqui: a troca confirma o novo endereço por código (/auth/email/...)."""
+
     senha: Optional[str] = None
+    # Obrigatória para trocar senha ou CPF — sessão aberta sozinha não basta para tomar a conta
+    senha_atual: Optional[str] = None
     # campos de Cliente (ignorados se o usuário for admin)
-    nome: Optional[str] = None
+    nome: Optional[str] = Field(default=None, max_length=100)
+    # O próprio cliente corrige o CPF (LGPD art. 18, III) — identidade da conta, por isso pede senha
+    cpf: Optional[str] = None
     telefone: Optional[str] = None
     data_nascimento: Optional[date] = None
+
+    @field_validator("nome")
+    @classmethod
+    def nome_valido(cls, v: Optional[str]) -> Optional[str]:
+        return _validar_nome(v) if v is not None else None
+
+    @field_validator("cpf")
+    @classmethod
+    def cpf_valido(cls, v: Optional[str]) -> Optional[str]:
+        return _validar_cpf(v) if v is not None else None
+
+    nascimento_valido = field_validator("data_nascimento")(_validar_nascimento)
 
     @field_validator("telefone")
     @classmethod
     def telefone_valido(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            return _validar_telefone(v)
-        return v
+        return _telefone_na_edicao(v)
 
 
+# Também é a resposta de GET /auth/perfil
 class AlterarContaRead(BaseModel):
     email: str
     cliente: Optional[ClienteRead] = None
+    # Só quando a senha muda: as sessões antigas caem e esta continua com o token novo
+    access_token: Optional[str] = None
 
     model_config = {"from_attributes": True}

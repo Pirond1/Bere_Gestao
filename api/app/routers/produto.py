@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_admin_atual, get_usuario_opcional
@@ -62,6 +62,28 @@ def atualizar_produto(
     return produto_service.atualizar(db, produto_id, dados)
 
 
+@router.post("/{produto_id}/foto", response_model=ProdutoRead)
+async def enviar_foto(
+    produto_id: int,
+    arquivo: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _=Depends(get_admin_atual),
+):
+    """Troca a foto do produto. JPG, PNG ou WebP até 10 MB — é reduzida e convertida para WebP."""
+    return await produto_service.trocar_foto(db, produto_id, arquivo)
+
+
+@router.delete("/{produto_id}/foto", response_model=ProdutoRead)
+def remover_foto(produto_id: int, db: Session = Depends(get_db), _=Depends(get_admin_atual)):
+    return produto_service.remover_foto(db, produto_id)
+
+
+@router.patch("/{produto_id}/desativar", response_model=ProdutoRead)
+def desativar_produto(produto_id: int, db: Session = Depends(get_db), _=Depends(get_admin_atual)):
+    """Tira o produto da vitrine, mantendo o histórico de pedidos."""
+    return produto_service.desativar(db, produto_id)
+
+
 @router.patch("/{produto_id}/reativar", response_model=ProdutoRead)
 def reativar_produto(
     produto_id: int,
@@ -77,4 +99,5 @@ def deletar_produto(
     db: Session = Depends(get_db),
     _=Depends(get_admin_atual),
 ):
+    """Exclui de vez — só produtos que nunca foram vendidos. Os demais devem ser desativados."""
     produto_service.deletar(db, produto_id)

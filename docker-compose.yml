@@ -33,21 +33,69 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
       DATABASE_URL: mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
       SECRET_KEY: ${SECRET_KEY}
       ALGORITHM: ${ALGORITHM}
-      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
+      SESSAO_CLIENTE_HORAS: ${SESSAO_CLIENTE_HORAS:-3}
+      SESSAO_ADMIN_DIAS: ${SESSAO_ADMIN_DIAS:-30}
       MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN}
       MERCADOPAGO_WEBHOOK_SECRET: ${MERCADOPAGO_WEBHOOK_SECRET:-}
       MERCADOPAGO_SANDBOX: ${MERCADOPAGO_SANDBOX:-true}
+      # E-mail (BG-15). Sem nada no .env, usa o Mailpit abaixo — nada sai para a internet
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_SEGURANCA: ${SMTP_SEGURANCA:-nenhuma}
+      SMTP_REMETENTE: ${SMTP_REMETENTE:-nao-responda@donabere.local}
     ports:
       - "8000:8000"
     volumes:
       # Monta o código local dentro do container (hot reload em dev)
       - ./api:/app
+      # Só leitura: a API apenas mostra no painel quando foi o último backup (BG-23)
+      - ./backups:/backups:ro
     # Roda as migrations antes de iniciar o servidor
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  #  Backup — banco + fotos todo dia, com cópia opcional fora do servidor (BG-23)
+  backup:
+    build:
+      context: ./backup
+    container_name: bere_backup
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      # Horário de Brasília
+      TZ: America/Sao_Paulo
+      BACKUP_HORARIO: ${BACKUP_HORARIO:-03:00}
+      BACKUP_DIAS: ${BACKUP_DIAS:-7}
+      BACKUP_SEMANAS: ${BACKUP_SEMANAS:-4}
+      # Remote do rclone + pasta (ex.: drive:bere-backups). Vazio = só cópia local
+      BACKUP_REMOTO: ${BACKUP_REMOTO:-}
+      RCLONE_CONFIG: /config/rclone/rclone.conf
+    volumes:
+      - ./backups:/backups
+      - ./api/app/uploads:/dados/uploads
+      # rclone.conf com o acesso ao Drive — fora do git
+      - ./backup/config:/config/rclone
+
+  #  Mailpit — caixa de entrada falsa para desenvolvimento
+  # Recebe todos os e-mails enviados pela API e mostra em http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.20.0
+    container_name: bere_mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
 
 #  Volumes persistentes
 volumes:

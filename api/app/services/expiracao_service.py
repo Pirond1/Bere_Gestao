@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.metodo_pagamento import MetodoPagamentoModel
 from app.models.pagamento import PagamentoModel
@@ -17,6 +16,7 @@ from app.models.pedido import PedidoModel
 from app.models.status_pagamento import StatusPagamentoModel
 from app.models.status_pedido import StatusPedidoModel
 from app.services import (
+    configuracao_service,
     metodo_pagamento_service,
     pagamento_service,
     pedido_service,
@@ -51,7 +51,7 @@ def _expirar_pix_vencidos(db: Session) -> None:
 
 
 def _cancelar_pedidos_sem_pagamento(db: Session) -> None:
-    limite = datetime.now() - timedelta(minutes=settings.PRAZO_PAGAMENTO_MINUTOS)
+    limite = datetime.now() - timedelta(minutes=configuracao_service.obter(db).prazo_pagamento_minutos)
     aguardando = (
         db.query(PedidoModel)
         .join(StatusPedidoModel)

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Optional
 
@@ -16,6 +16,7 @@ from app.schemas.pedido import PedidoCreate
 from app.services import (
     agendamento_service,
     cliente_service,
+    lgpd_service,
     pagamento_service,
     produto_service,
     status_pedido_service,
@@ -28,7 +29,8 @@ def criar(db: Session, cliente_id: int, dados: PedidoCreate) -> PedidoModel:
     Tudo acontece em uma única transação: se qualquer validação falhar,
     a vaga reservada é descartada junto com o pedido.
     """
-    cliente_service.buscar_por_id(db, cliente_id)
+    cliente = cliente_service.buscar_por_id(db, cliente_id)
+    lgpd_service.exigir_aceite(cliente)
     # Reserva a vaga primeiro — se o dia estiver cheio, nem monta o pedido
     agenda = agendamento_service.reservar(db, dados.data_retirada)
     status_inicial = status_pedido_service.buscar_por_descricao(
@@ -175,11 +177,66 @@ def buscar_por_id(db: Session, pedido_id: int) -> PedidoModel:
     return pedido
 
 
+def _filtro_novos():
+    """Pedido novo: pago, ainda em andamento e que a loja nunca abriu no painel."""
+    return (
+        PedidoModel.visualizado_em.is_(None),
+        PedidoModel.status.has(
+            StatusPedidoModel.descricao.in_(status_pedido_service.EM_ANDAMENTO)
+        ),
+    )
+
+
+def _marcar_visto(pedido: PedidoModel) -> None:
+    # Guarda só a primeira vez; o banco grava datas em UTC
+    if pedido.visualizado_em is None:
+        pedido.visualizado_em = datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def contar_novos(db: Session) -> int:
+    return db.query(PedidoModel).filter(*_filtro_novos()).count()
+
+
+def marcar_visualizado(db: Session, pedido_id: int) -> PedidoModel:
+    """A loja abriu o detalhe do pedido — ele deixa de contar como novo."""
+    pedido = buscar_por_id(db, pedido_id)
+    _marcar_visto(pedido)
+    db.commit()
+    db.refresh(pedido)
+    return pedido
+
+
+def marcar_todos_visualizados(db: Session) -> int:
+    """Zera o indicador de pedidos novos. Retorna quantos foram marcados."""
+    novos = db.query(PedidoModel).filter(*_filtro_novos()).all()
+    for pedido in novos:
+        _marcar_visto(pedido)
+    db.commit()
+    return len(novos)
+
+
+def marcar_avisado(db: Session, pedido_id: int) -> PedidoModel:
+    """A loja avisou o cliente que o pedido está pronto. Guarda o último aviso (admin)."""
+    pedido = buscar_por_id(db, pedido_id)
+    if pedido.status.descricao != status_pedido_service.PRONTO:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Só é possível avisar o cliente quando o pedido está pronto para retirada",
+        )
+    pedido.avisado_em = datetime.now(timezone.utc).replace(tzinfo=None)
+    _marcar_visto(pedido)
+    db.commit()
+    db.refresh(pedido)
+    return pedido
+
+
 def _mover_no_fluxo(db: Session, pedido: PedidoModel, passo: int) -> PedidoModel:
     novo = status_pedido_service.FLUXO_PRODUCAO[
         status_pedido_service.FLUXO_PRODUCAO.index(pedido.status.descricao) + passo
     ]
     pedido.status_id = status_pedido_service.buscar_por_descricao(db, novo).id
+    # Mexer no pedido (ex.: botão rápido da lista) significa que a loja já o viu
+    _marcar_visto(pedido)
     db.commit()
     db.refresh(pedido)
     return pedido

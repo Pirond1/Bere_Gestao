@@ -4,6 +4,11 @@ from sqlalchemy.orm import Session
 from app.models.configuracao import ConfiguracaoModel
 from app.schemas.configuracao import ConfiguracaoUpdate
 
+CAMPOS_OPCIONAIS = {
+    "endereco_retirada", "horario_retirada", "email_resposta",
+    "whatsapp_loja", "instagram", "facebook", "tiktok", "cnpj",
+}
+
 
 def obter(db: Session) -> ConfiguracaoModel:
     """Retorna a linha única de configuração, criada pela migration de seed."""
@@ -19,6 +24,9 @@ def obter(db: Session) -> ConfiguracaoModel:
 def atualizar(db: Session, dados: ConfiguracaoUpdate) -> ConfiguracaoModel:
     configuracao = obter(db)
     for campo, valor in dados.model_dump(exclude_unset=True).items():
+        # Nulo só apaga os textos opcionais; nos números e dias fechados significa "não mudar"
+        if valor is None and campo not in CAMPOS_OPCIONAIS:
+            continue
         setattr(configuracao, campo, valor)
     db.commit()
     db.refresh(configuracao)

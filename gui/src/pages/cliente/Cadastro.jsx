@@ -1,16 +1,20 @@
-import { ShieldCheck } from 'lucide-react'
+import { MailCheck, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
+import { CodeInput, ResendCode } from '../../components/CodeInput'
 import { AuthCard } from '../../components/layout/AuthCard'
+import { PasswordStrength } from '../../components/PasswordStrength'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { Field } from '../../components/ui/Field'
 import { PasswordField } from '../../components/ui/PasswordField'
 import { useAuth } from '../../hooks/useAuth'
+import { resendRegistrationCode } from '../../services/authService'
 import { getErrorMessage } from '../../utils/errors'
 import { maskCpf, maskPhone, onlyDigits } from '../../utils/format'
+import { passwordIssue } from '../../utils/password'
 import { redirectAfterAuth } from '../../utils/redirect'
 import { isValidCpf, isValidEmail, isValidPhone } from '../../utils/validators'
 
@@ -22,6 +26,77 @@ const initialForm = {
   data_nascimento: '',
   senha: '',
   confirmarSenha: '',
+  aceite: false,
+}
+
+const personOf = (form) => ({ nome: form.nome, email: form.email, cpf: form.cpf })
+
+/** 2ª etapa: o código que chegou no e-mail cria a conta. */
+function ConfirmEmail({ pending, onBack, from }) {
+  const { confirmRegistration } = useAuth()
+  const navigate = useNavigate()
+  const [codigo, setCodigo] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    if (codigo.length !== 6) {
+      setError('Digite os 6 dígitos do código')
+      return
+    }
+    setError('')
+    setLoading(true)
+    try {
+      const user = await confirmRegistration(pending.email, codigo)
+      toast.success('Conta criada!', { description: 'Agora é só escolher seus doces.' })
+      navigate(redirectAfterAuth(user, from), { replace: true })
+    } catch (err) {
+      setError(getErrorMessage(err))
+      setLoading(false)
+    }
+  }
+
+  const handleResend = async () => {
+    try {
+      const enviado = await resendRegistrationCode(pending.email)
+      toast.success('Enviamos um novo código')
+      setCodigo('')
+      setError('')
+      return enviado.reenvio_em_segundos
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+      return null
+    }
+  }
+
+  return (
+    <AuthCard title="Confirme seu e-mail" subtitle="Falta só um passo para criar sua conta">
+      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+        <p className="flex gap-3 rounded-lg bg-muted p-4 text-sm">
+          <MailCheck className="mt-0.5 h-5 w-5 shrink-0 text-gold-dark" aria-hidden="true" />
+          <span>
+            Enviamos um código para <strong className="break-all">{pending.email}</strong>. Ele vale por 15 minutos —
+            confira também a caixa de spam.
+          </span>
+        </p>
+        <CodeInput value={codigo} onChange={setCodigo} error={error} />
+        <Button type="submit" size="lg" className="w-full" loading={loading} disabled={codigo.length !== 6}>
+          Confirmar e criar conta
+        </Button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <ResendCode seconds={pending.reenvio_em_segundos} onResend={handleResend} />
+          <button
+            type="button"
+            onClick={onBack}
+            className="cursor-pointer text-sm text-muted-foreground underline-offset-4 hover:underline"
+          >
+            Corrigir meus dados
+          </button>
+        </div>
+      </form>
+    </AuthCard>
+  )
 }
 
 function validate(form) {
@@ -29,15 +104,19 @@ function validate(form) {
   if (!form.nome.trim()) errors.nome = 'Informe seu nome'
   if (!isValidEmail(form.email.trim())) errors.email = 'Informe um e-mail válido'
   if (!isValidCpf(form.cpf)) errors.cpf = 'CPF inválido'
-  if (form.telefone && !isValidPhone(form.telefone)) errors.telefone = 'Informe DDD + número'
+  if (!isValidPhone(form.telefone)) errors.telefone = 'Informe o celular com DDD'
   if (!form.senha) errors.senha = 'Crie uma senha'
+  else {
+    const issue = passwordIssue(form.senha, personOf(form))
+    if (issue) errors.senha = issue
+  }
   if (form.confirmarSenha !== form.senha) errors.confirmarSenha = 'As senhas não coincidem'
+  if (!form.aceite) errors.aceite = 'Para criar a conta, aceite a Política de Privacidade e os Termos'
   return errors
 }
 
 export function Cadastro() {
   const { register } = useAuth()
-  const navigate = useNavigate()
   const location = useLocation()
   const from = location.state?.from
 
@@ -45,6 +124,8 @@ export function Cadastro() {
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
   const [loading, setLoading] = useState(false)
+  // Código enviado: { email, expira_em, reenvio_em_segundos } — mostra a etapa de confirmação
+  const [pending, setPending] = useState(null)
 
   const update = (field, mask) => (event) => {
     const value = mask ? mask(event.target.value) : event.target.value
@@ -62,21 +143,24 @@ export function Cadastro() {
 
     setLoading(true)
     try {
-      const user = await register({
+      const enviado = await register({
         nome: form.nome.trim(),
         email: form.email.trim(),
         cpf: onlyDigits(form.cpf),
-        telefone: form.telefone ? onlyDigits(form.telefone) : null,
+        telefone: onlyDigits(form.telefone),
         data_nascimento: form.data_nascimento || null,
         senha: form.senha,
+        aceite_termos: form.aceite,
       })
-      toast.success('Conta criada!', { description: 'Agora é só escolher seus doces.' })
-      navigate(redirectAfterAuth(user, from), { replace: true })
+      setPending(enviado)
     } catch (err) {
       setSubmitError(getErrorMessage(err, 'Não foi possível criar sua conta. Tente novamente.'))
+    } finally {
       setLoading(false)
     }
   }
+
+  if (pending) return <ConfirmEmail pending={pending} onBack={() => setPending(null)} from={from} />
 
   return (
     <AuthCard
@@ -123,8 +207,7 @@ export function Cadastro() {
             error={errors.cpf}
           />
           <Field
-            label="Celular"
-            optional
+            label="Celular (WhatsApp)"
             type="tel"
             autoComplete="tel-national"
             placeholder="(18) 99999-9999"
@@ -151,6 +234,9 @@ export function Cadastro() {
           onChange={update('senha')}
           error={errors.senha}
         />
+        <div className="-mt-3">
+          <PasswordStrength senha={form.senha} pessoa={personOf(form)} />
+        </div>
 
         <PasswordField
           label="Confirmar senha"
@@ -160,9 +246,32 @@ export function Cadastro() {
           error={errors.confirmarSenha}
         />
 
+        <div>
+          <label className="flex cursor-pointer gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={form.aceite}
+              onChange={(e) => {
+                setForm((prev) => ({ ...prev, aceite: e.target.checked }))
+                if (errors.aceite) setErrors((prev) => ({ ...prev, aceite: undefined }))
+              }}
+              aria-invalid={Boolean(errors.aceite)}
+              className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-chocolate"
+            />
+            <span>
+              Li e aceito a{' '}
+              <Link to="/privacidade" target="_blank" className="font-medium underline underline-offset-2">
+                Política de Privacidade e os Termos de Uso
+              </Link>
+              .
+            </span>
+          </label>
+          {errors.aceite && <p className="mt-1.5 text-sm text-destructive">{errors.aceite}</p>}
+        </div>
+
         <p className="flex gap-2 text-xs text-muted-foreground">
           <ShieldCheck className="h-4 w-4 shrink-0 text-gold-dark" aria-hidden="true" />
-          Seus dados são usados apenas para identificar e entregar seus pedidos, conforme a LGPD.
+          Seus dados são usados apenas para identificar você e cuidar dos seus pedidos, conforme a LGPD.
         </p>
 
         <Button type="submit" size="lg" className="w-full" loading={loading}>

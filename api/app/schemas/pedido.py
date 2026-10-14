@@ -2,10 +2,11 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import AliasPath, BaseModel, Field, field_validator
+from pydantic import AliasPath, BaseModel, Field, computed_field, field_validator
 
 from app.schemas.avaliacao import AvaliacaoRead
 from app.schemas.status_pedido import StatusPedidoRead
+from app.services.status_pedido_service import EM_ANDAMENTO
 
 
 class ItemPedidoCreate(BaseModel):
@@ -88,6 +89,18 @@ class PedidoPainelRead(PedidoRead):
 
     cliente: ClienteResumoRead
     pagamentos: list[PagamentoResumoRead] = []
+    visualizado_em: Optional[datetime]
+    avisado_em: Optional[datetime]
+
+    @computed_field
+    @property
+    def novo(self) -> bool:
+        """Pago, em andamento e ainda não aberto pela loja — ganha o selo "Novo" no painel."""
+        return self.visualizado_em is None and self.status.descricao in EM_ANDAMENTO
+
+
+class NovosPedidosRead(BaseModel):
+    quantidade: int
 
 
 class PedidoPainelPagina(BaseModel):

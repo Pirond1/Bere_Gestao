@@ -15,6 +15,7 @@ from app.models.cliente import ClienteModel
 from app.models.usuario import UsuarioModel
 from app.schemas.pedido import (
     PedidoCancelar,
+    NovosPedidosRead,
     PedidoCreate,
     PedidoPainelPagina,
     PedidoPainelRead,
@@ -70,9 +71,33 @@ def listar_pedidos_painel(
     )
 
 
+@router.get("/painel/novos", response_model=NovosPedidosRead)
+def contar_pedidos_novos(db: Session = Depends(get_db), _=Depends(get_admin_atual)):
+    """Quantidade para o indicador do menu: pagos, em andamento e ainda não abertos."""
+    return {"quantidade": pedido_service.contar_novos(db)}
+
+
+@router.post("/painel/marcar-vistos", response_model=NovosPedidosRead)
+def marcar_todos_vistos(db: Session = Depends(get_db), _=Depends(get_admin_atual)):
+    """Zera o indicador. Retorna quantos pedidos foram marcados."""
+    return {"quantidade": pedido_service.marcar_todos_visualizados(db)}
+
+
 @router.get("/painel/{pedido_id}", response_model=PedidoPainelRead)
 def buscar_pedido_painel(pedido_id: int, db: Session = Depends(get_db), _=Depends(get_admin_atual)):
     return pedido_service.buscar_por_id(db, pedido_id)
+
+
+@router.patch("/{pedido_id}/visualizado", response_model=PedidoPainelRead)
+def marcar_pedido_visualizado(pedido_id: int, db: Session = Depends(get_db), _=Depends(get_admin_atual)):
+    """A loja abriu o detalhe do pedido — ele deixa de ser novo."""
+    return pedido_service.marcar_visualizado(db, pedido_id)
+
+
+@router.patch("/{pedido_id}/avisado", response_model=PedidoPainelRead)
+def marcar_pedido_avisado(pedido_id: int, db: Session = Depends(get_db), _=Depends(get_admin_atual)):
+    """A loja abriu o WhatsApp para avisar que o pedido está pronto para retirada."""
+    return pedido_service.marcar_avisado(db, pedido_id)
 
 
 @router.get("/{pedido_id}", response_model=PedidoRead)

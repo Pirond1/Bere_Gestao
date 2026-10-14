@@ -11,6 +11,7 @@ import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { useAsync } from '../../hooks/useAsync'
+import { usePaymentDeadline } from '../../hooks/usePaymentDeadline'
 import { cancelOrder, getOrder } from '../../services/orderService'
 import { listPayments } from '../../services/paymentService'
 import { formatDateLong, formatDateTime } from '../../utils/date'
@@ -18,7 +19,6 @@ import { getErrorMessage } from '../../utils/errors'
 import { formatCurrency } from '../../utils/format'
 import { STATUS, canClientCancel } from '../../utils/orderStatus'
 import {
-  PAYMENT_DEADLINE_MINUTES,
   PAYMENT_METHOD,
   PAYMENT_METHOD_LABEL,
   PAYMENT_STATUS,
@@ -122,6 +122,7 @@ export function PedidoDetalhe() {
 
   const fetchOrder = useCallback(() => loadOrder(id), [id])
   const { data, loading, error, reload } = useAsync(fetchOrder)
+  const prazo = usePaymentDeadline()
 
   if (loading) {
     return (
@@ -215,7 +216,7 @@ export function PedidoDetalhe() {
             <div className="flex-1">
               <h2 className="mb-1 text-xl">Falta pagar</h2>
               <p className="text-muted-foreground">
-                Pague com PIX ou cartão de crédito. Pedidos sem pagamento em {PAYMENT_DEADLINE_MINUTES} minutos são
+                Pague com PIX ou cartão de crédito. Pedidos sem pagamento em {prazo} são
                 cancelados e a data é liberada.
               </p>
             </div>

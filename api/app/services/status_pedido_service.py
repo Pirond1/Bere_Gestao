@@ -18,6 +18,9 @@ CANCELAVEIS_PELO_CLIENTE = (AGUARDANDO_PAGAMENTO, CONFIRMADO)
 # "Confirmado" só é alcançado pelo pagamento aprovado — nunca manualmente.
 FLUXO_PRODUCAO = (CONFIRMADO, EM_PRODUCAO, PRONTO, ENTREGUE)
 
+# Pagos e ainda em andamento: se a loja nunca abriu, contam como "pedido novo" no painel
+EM_ANDAMENTO = (CONFIRMADO, EM_PRODUCAO, PRONTO)
+
 
 def listar(db: Session) -> list[StatusPedidoModel]:
     return db.query(StatusPedidoModel).order_by(StatusPedidoModel.id).all()
