@@ -5,6 +5,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '../../hooks/useAuth'
 import { useNewOrdersCount } from '../../hooks/useNewOrdersCount'
 import { cn } from '../../utils/cn'
+import { PwaPrompts } from '../PwaPrompts'
 import { BrandIcon } from '../ui/Logo'
 
 const adminNav = [
@@ -142,6 +143,7 @@ export function AdminLayout() {
           <Outlet />
         </main>
       </div>
+      <PwaPrompts />
     </div>
   )
 }

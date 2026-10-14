@@ -123,8 +123,7 @@ gui/dist/
 .stylelintcache
 .parcel-cache/
 
-# PWA — service workers gerados automaticamente
-gui/public/sw.js
+# PWA — o service worker (gui/public/sw.js) é escrito à mão e vai para o git (BG-18)
 gui/public/workbox-*.js
 
 # Logs npm/yarn/pnpm
