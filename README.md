@@ -229,7 +229,7 @@ Use senhas e `SECRET_KEY` **novas**, nunca as de desenvolvimento. Os campos do M
 
 1. Crie a conta grátis em [brevo.com](https://www.brevo.com) (300 e-mails/dia).
 2. *Remetentes, domínios e IPs dedicados › Domínios*: adicione o domínio e crie no DNS do registro.br os registros TXT/CNAME que o Brevo mostrar (código do Brevo, DKIM e DMARC). Sem isso, os e-mails caem no spam.
-3. *Remetentes*: cadastre o `SMTP_REMETENTE` (ex.: `nao-responda@DOMINIO`).
+3. *Remetentes*: cadastre o `SMTP_REMETENTE` (ex.: `nao-responda@DOMINIO`). Ele precisa aparecer como **Verificado**: sem isso o Brevo aceita o envio pelo SMTP mas não entrega (nos logs: "Enviado" seguido de "Erro: sender not valid").
 4. *SMTP & API › SMTP*: copie o **login** para `SMTP_USER` e gere uma **chave SMTP** para `SMTP_PASSWORD`.
 
 ### 5. Mercado Pago (produção)

@@ -181,7 +181,7 @@ export function Pagamento() {
 
       <h1 className="mb-2 text-3xl md:text-4xl">Pagamento</h1>
       <p className="mb-8 text-muted-foreground">
-        Sua data de retirada está reservada. Conclua o pagamento em até {prazo}
+        Sua data de retirada está reservada. Conclua o pagamento em até {prazo}{' '}
         para garantir o pedido.
       </p>
 
