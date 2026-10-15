@@ -175,12 +175,17 @@ Variáveis opcionais no `.env`: `BACKUP_HORARIO` (padrão `03:00`), `BACKUP_DIAS
 
 Se o backup ficar só no servidor, perder a VPS significa perder o backup junto. Com o [rclone](https://rclone.org), cada backup também é enviado para o Drive:
 
-1. No seu computador, instale o rclone (`winget install Rclone.Rclone`) e rode `rclone config`:
-   - `n` (novo remote), nome `drive`, tipo `drive` (Google Drive). Nas perguntas seguintes, aceite os padrões e autorize no navegador quando ele abrir.
-   - **Recomendado (LGPD):** crie um segundo remote, nome `drive-cripto`, tipo `crypt`, apontando para `drive:bere-backups` e com uma senha forte. Os arquivos vão criptografados para o Drive. **Guarde essa senha fora do servidor:** sem ela, o backup não pode ser lido.
-2. Copie o arquivo gerado (`rclone config file` mostra onde ele está) para `backup/config/rclone.conf`. A pasta é ignorada pelo git.
-3. No `.env`, coloque `BACKUP_REMOTO=drive-cripto:` (ou `BACKUP_REMOTO=drive:bere-backups`, sem criptografia) e rode `docker-compose up -d backup`.
-4. Teste com `docker exec bere_backup backup agora`. O painel passa a mostrar "Cópia guardada fora do servidor".
+1. **Crie um acesso próprio no Google Cloud.** O acesso compartilhado que o rclone usa por padrão está sendo desativado em 2026. Em [console.cloud.google.com](https://console.cloud.google.com), com a conta Google que vai guardar os backups:
+   - crie um projeto (ex.: `bere-backup`) e ative a **Google Drive API**;
+   - na tela de consentimento OAuth: público **Externo**, escopo só **`drive.file`**, e em *Branding* a página inicial `https://DOMINIO` e a política `https://DOMINIO/privacidade` (**sem logotipo**, porque logo exige verificação do Google);
+   - **publique o app** (*Público-alvo › Publicar app*). Em modo de teste, o Google corta o acesso a cada 7 dias;
+   - crie uma credencial **ID do cliente OAuth › App para computador** e anote o ID e a chave secreta.
+2. No seu computador, instale o rclone (`winget install Rclone.Rclone`) e rode `rclone config`:
+   - `n` (novo remote), nome `drive`, tipo `drive`, com o `client_id` e o `client_secret` do passo 1 e `scope` = `drive.file`. Autorize no navegador quando ele abrir. Se aparecer "O Google não verificou este app", use *Avançado › Acessar*.
+   - **Recomendado (LGPD):** crie um segundo remote, nome `drive-cripto`, tipo `crypt`, apontando para `drive:bere-backups`, com senhas geradas (`g`). Os arquivos vão criptografados para o Drive. **Guarde as duas senhas fora do servidor:** sem elas, o backup não pode ser lido. Se esquecer de anotar, recupere com `rclone config show drive-cripto` + `rclone reveal <valor>`.
+3. Copie o arquivo gerado (`rclone config file` mostra onde ele está) para `backup/config/rclone.conf` no servidor (`scp`, com `chmod 600`). A pasta é ignorada pelo git.
+4. No `.env`, coloque `BACKUP_REMOTO=drive-cripto:` (ou `BACKUP_REMOTO=drive:bere-backups`, sem criptografia) e rode `docker compose -f docker-compose.prod.yml up -d backup`.
+5. Teste com `docker exec bere_backup backup agora`. O painel passa a mostrar "Cópia guardada fora do servidor".
 
 No Drive, as pastas `diarios/` e `semanais/` seguem a mesma retenção. Os arquivos antigos são apagados pela idade, nunca espelhando a pasta local: se o disco do servidor se perder, as cópias do Drive continuam lá. Para restaurar a partir do Drive, baixe o arquivo para `backups/` e use o `restaurar` normalmente (com criptografia: `rclone copy drive-cripto:diarios/<arquivo> backups/`).
 
