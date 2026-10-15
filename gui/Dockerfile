@@ -18,6 +18,7 @@ ENV VITE_MP_PUBLIC_KEY=$VITE_MP_PUBLIC_KEY
 RUN npm run build
 
 # Etapa 2 — só os arquivos estáticos + Caddy
-FROM caddy:2.10-alpine
+# 2.11+: a 2.10 trava ao criar a conta no Let's Encrypt na primeira subida (certmagic #354)
+FROM caddy:2.11.4-alpine
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/dist /srv
